@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Ooredoo AI Lab — RAG vs KAG</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --red:#E30613;--dark-red:#B0010F;--light-red:rgba(227,6,19,.1);--xlight-red:rgba(227,6,19,.05);
+  --bg:#09090D;--bg2:#111118;--bg3:#1A1A24;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.08);
+  --text:#F0F0F5;--text2:#9090A0;--text3:#505060;
+  --blue:#38BDF8;--green:#22C55E;--yellow:#FBBF24;--purple:#A78BFA;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;}
+
+/* APP SHELL */
+.app{display:grid;grid-template-rows:60px 1fr;height:100vh;}
+
+/* HEADER */
+header{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:16px;padding:0 20px;position:relative;
+}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),transparent);}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.logo-box{width:36px;height:36px;border-radius:8px;background:var(--red);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;letter-spacing:-.5px;}
+.logo-name{font-size:15px;font-weight:700;color:var(--text);}
+.logo-name b{color:var(--red);}
+.pill{background:var(--light-red);border:1px solid rgba(227,6,19,.3);color:var(--red);font-size:10px;font-weight:700;padding:3px 9px;border-radius:100px;letter-spacing:.5px;}
+.htabs{display:flex;gap:3px;margin-left:20px;}
+.htab{padding:5px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text2);transition:all .2s;}
+.htab.active{background:var(--red);color:#fff;}
+.htab:hover:not(.active){background:var(--card);color:var(--text);}
+.hright{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.status-row{display:flex;align-items:center;gap:6px;}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--yellow);animation:pulse 2s infinite;}
+.sdot.ok{background:var(--green);box-shadow:0 0 8px var(--green);}
+.slabel{font-size:11px;color:var(--text2);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* GRID */
+.main{display:grid;grid-template-columns:270px 1fr 300px;height:100%;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.stitle{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:8px;}
+
+/* Stat mini grid */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px;text-align:center;}
+.snum{font-size:20px;font-weight:700;font-family:'JetBrains Mono';color:var(--red);}
+.snum.blue{color:var(--blue);}
+.snum.green{color:var(--green);}
+.slbl{font-size:9px;color:var(--text3);margin-top:2px;}
+
+/* Upload zone */
+.upload-zone{
+  border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;
+  cursor:pointer;transition:all .2s;position:relative;
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--red);background:var(--xlight-red);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-icon{font-size:24px;margin-bottom:8px;}
+.upload-text{font-size:12px;color:var(--text2);line-height:1.5;}
+.upload-text b{color:var(--text);display:block;}
+.upload-formats{font-size:10px;color:var(--text3);margin-top:4px;}
+
+/* Controls */
+.flabel{font-size:11px;color:var(--text2);margin-bottom:5px;}
+.fselect{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 10px;font-size:12px;font-family:'Inter';outline:none;transition:border .2s;cursor:pointer;}
+.fselect:focus{border-color:var(--red);}
+.fselect option{background:var(--bg3);}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:600;border:none;cursor:pointer;transition:all .2s;font-family:'Inter';width:100%;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-red:hover{background:var(--dark-red);box-shadow:0 5px 16px rgba(227,6,19,.35);transform:translateY(-1px);}
+.btn-red:active{transform:translateY(0);}
+.btn-red:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-outline:hover{border-color:var(--red);color:var(--text);}
+
+.pbar-wrap{background:var(--card);border:1px solid var(--border);border-radius:100px;height:4px;overflow:hidden;display:none;}
+.pbar{height:100%;background:linear-gradient(90deg,var(--red),#ff5560);border-radius:100px;width:0%;transition:width .5s;}
+.build-log{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;font-family:'JetBrains Mono';font-size:9px;color:var(--text2);max-height:60px;overflow-y:auto;display:none;line-height:1.6;}
+
+/* History */
+.hist-list{display:flex;flex-direction:column;gap:4px;}
+.hist-item{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:10px;color:var(--text2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .2s;}
+.hist-item:hover{border-color:rgba(227,6,19,.4);color:var(--text);}
+
+/* CONTENT */
+.content{display:flex;flex-direction:column;overflow:hidden;}
+.tpanel{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.tpanel.active{display:flex;}
+
+/* CHAT */
+.msgs{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;}
+.msgs::-webkit-scrollbar{width:3px;}
+.msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* Welcome */
+.welcome{text-align:center;padding:28px 16px;display:flex;flex-direction:column;align-items:center;gap:12px;}
+.wicon{width:64px;height:64px;border-radius:16px;background:var(--light-red);border:1px solid rgba(227,6,19,.3);display:flex;align-items:center;justify-content:center;font-size:28px;}
+.welcome h2{font-size:18px;font-weight:700;}
+.welcome h2 span{color:var(--red);}
+.welcome p{font-size:12px;color:var(--text2);max-width:400px;line-height:1.7;}
+.steps{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px;}
+.step{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.step b{color:var(--red);}
+.example-qs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
+.eq{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 11px;font-size:10px;color:var(--text2);cursor:pointer;transition:all .2s;}
+.eq:hover{border-color:var(--red);color:var(--text);}
+
+/* Messages */
+.msg{display:flex;gap:9px;animation:fi .3s ease;}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse;}
+.mav{width:30px;height:30px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.user .mav{background:var(--red);}
+.bot .mav{background:var(--bg3);border:1px solid var(--border);}
+.mc{max-width:520px;display:flex;flex-direction:column;gap:5px;}
+.user .mc{align-items:flex-end;}
+.mb{padding:10px 13px;border-radius:10px;font-size:12px;line-height:1.65;}
+.user .mb{background:var(--red);color:#fff;border-bottom-right-radius:3px;}
+.bot .mb{background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:3px;}
+.mmeta{font-size:9px;color:var(--text3);padding:0 3px;display:flex;align-items:center;gap:6px;}
+.badge-rag{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:var(--blue);padding:1px 6px;border-radius:100px;font-size:9px;font-weight:700;}
+.badge-kag{background:var(--light-red);border:1px solid rgba(227,6,19,.25);color:var(--red);padding:1px 6px;border-radius:100px;font-size:9px;font-weight:700;}
+.lat-badge{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);color:var(--yellow);padding:1px 6px;border-radius:100px;font-size:9px;}
+
+/* Compare split view */
+.compare-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;animation:fi .3s ease;}
+.compare-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px;font-size:12px;line-height:1.65;}
+.compare-card.rag-card{border-top:2px solid var(--blue);}
+.compare-card.kag-card{border-top:2px solid var(--red);}
+.compare-label{font-size:10px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.compare-answer{color:var(--text);margin-bottom:8px;}
+.compare-diff{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;}
+.diff-title{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+
+/* Typing */
+.typing-dots{display:flex;gap:4px;align-items:center;padding:3px 0;}
+.td{width:6px;height:6px;border-radius:50%;background:var(--red);animation:b 1.2s infinite;}
+.td:nth-child(2){animation-delay:.2s;}.td:nth-child(3){animation-delay:.4s;}
+@keyframes b{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+/* Input area */
+.input-area{padding:13px 18px;border-top:1px solid var(--border);background:var(--bg2);}
+.pipe-btns{display:flex;gap:6px;margin-bottom:9px;align-items:center;}
+.pbtn{padding:4px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text2);transition:all .2s;}
+.pbtn.active.rag{background:var(--blue);border-color:var(--blue);color:#000;}
+.pbtn.active.kag{background:var(--red);border-color:var(--red);color:#fff;}
+.pbtn.active.both{background:linear-gradient(90deg,var(--blue),var(--red));border-color:transparent;color:#fff;}
+.pbtn:hover:not(.active){border-color:var(--red);color:var(--text);}
+.ibox{display:flex;align-items:flex-end;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;transition:border .2s;}
+.ibox:focus-within{border-color:var(--red);}
+#q{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:'Inter';resize:none;max-height:90px;line-height:1.5;}
+#q::placeholder{color:var(--text3);}
+.sbtn{width:32px;height:32px;background:var(--red);border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;flex-shrink:0;}
+.sbtn:hover{background:var(--dark-red);transform:scale(1.05);}
+.sbtn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+/* MLOPS */
+.mlops-wrap{flex:1;overflow-y:auto;padding:20px;}
+.mlops-wrap::-webkit-scrollbar{width:3px;}
+.mlops-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.mcard{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px;}
+.mcard.green{border-top:2px solid var(--green);}.mcard.blue{border-top:2px solid var(--blue);}.mcard.red{border-top:2px solid var(--red);}.mcard.purple{border-top:2px solid var(--purple);}
+.mval{font-size:24px;font-weight:700;font-family:'JetBrains Mono';}
+.mcard.green .mval{color:var(--green);}.mcard.blue .mval{color:var(--blue);}.mcard.red .mval{color:var(--red);}.mcard.purple .mval{color:var(--purple);}
+.mlbl{font-size:10px;color:var(--text2);}
+.msub{font-size:9px;color:var(--text3);margin-top:2px;}
+.section-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden;}
+.sbox-title{padding:13px 16px;font-size:13px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.sbox-body{padding:16px;}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.bar-name{width:36px;font-size:10px;}
+.bar-name.rag{color:var(--blue);}.bar-name.kag{color:var(--red);}
+.btrack{flex:1;background:var(--card);border-radius:100px;height:7px;overflow:hidden;}
+.bfill{height:100%;border-radius:100px;transition:width 1s ease;}
+.bfill.rag{background:var(--blue);}.bfill.kag{background:var(--red);}
+.bval{font-size:10px;font-family:'JetBrains Mono';color:var(--text2);min-width:55px;text-align:right;}
+.eval-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.eval-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.eval-pipe{font-size:10px;font-weight:700;margin-bottom:8px;}
+.eval-pipe.rag{color:var(--blue);}.eval-pipe.kag{color:var(--red);}
+.eval-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.eval-row:last-child{border:none;}
+.eval-val{font-family:'JetBrains Mono';font-weight:600;color:var(--text);}
+table{width:100%;border-collapse:collapse;}
+th{padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);}
+td{padding:8px 12px;font-size:11px;color:var(--text2);border-bottom:1px solid rgba(255,255,255,.03);}
+tr:last-child td{border:none;}
+tr:hover td{background:var(--card);}
+.badge{display:inline-flex;align-items:center;padding:1px 7px;border-radius:100px;font-size:9px;font-weight:700;}
+
+/* EVAL PANEL */
+.eval-panel{padding:16px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--border);}
+.etitle{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);}
+.eval-form{display:flex;flex-direction:column;gap:6px;}
+.eval-input{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:11px;font-family:'Inter';outline:none;resize:none;}
+.eval-input:focus{border-color:var(--red);}
+
+/* RIGHT PANEL */
+.rpanel{background:var(--bg2);border-left:1px solid var(--border);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+.rpanel::-webkit-scrollbar{width:3px;}
+.rpanel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.rempty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;padding:24px 0;color:var(--text3);}
+.rempty .icon{font-size:28px;opacity:.5;}
+.rempty p{font-size:11px;line-height:1.6;}
+.ctx-count{background:var(--light-red);border:1px solid rgba(227,6,19,.2);border-radius:6px;padding:6px 10px;font-size:10px;color:var(--red);text-align:center;font-weight:600;}
+.triplet{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;animation:fi .3s ease;transition:border .2s;}
+.triplet:hover{border-color:rgba(227,6,19,.3);}
+.triplet-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.ts{background:var(--light-red);border:1px solid rgba(227,6,19,.3);color:var(--red);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:500;}
+.tr{background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);color:var(--blue);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono';font-size:8px;}
+.to{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:var(--green);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:500;}
+.arr{color:var(--text3);font-size:9px;}
+.doc-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;animation:fi .3s ease;}
+.doc-title{font-weight:600;color:var(--blue);margin-bottom:4px;font-size:10px;}
+.doc-text{color:var(--text2);line-height:1.5;font-size:9px;}
+
+/* Toast */
+.toast{position:fixed;bottom:18px;right:18px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 14px;font-size:11px;display:flex;align-items:center;gap:7px;animation:fi .3s ease;z-index:1000;}
+.toast.ok{border-color:rgba(34,197,94,.4);}.toast.err{border-color:rgba(227,6,19,.5);}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-box">oo</div>
+    <div class="logo-name">Ooredoo <b>AI Lab</b></div>
+  </div>
+  <span class="pill">RAG vs KAG Explorer</span>
+  <div class="htabs">
+    <button class="htab active" onclick="tab('chat')" id="ht-chat">💬 Chat</button>
+    <button class="htab" onclick="tab('mlops')" id="ht-mlops">📊 MLOps</button>
+  </div>
+  <div class="hright">
+    <div class="status-row">
+      <div class="sdot" id="sdot"></div>
+      <span class="slabel" id="slabel">Chargement...</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+<!-- ── SIDEBAR ─────────────────────────────────────── -->
+<aside class="sidebar">
+
+  <!-- Stats -->
+  <div>
+    <div class="stitle">📊 État des pipelines</div>
+    <div class="sgrid">
+      <div class="scard"><div class="snum" id="kag-n">—</div><div class="slbl">KAG Entités</div></div>
+      <div class="scard"><div class="snum" id="kag-r">—</div><div class="slbl">KAG Relations</div></div>
+      <div class="scard"><div class="snum blue" id="rag-d">—</div><div class="slbl">RAG Documents</div></div>
+      <div class="scard"><div class="snum green" id="tot-q">—</div><div class="slbl">Requêtes total</div></div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div>
+    <div class="stitle">📄 Votre document</div>
+    <div class="upload-zone" id="drop-zone" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
+      <input type="file" id="file-input" accept=".pdf,.txt,.md,.docx,.rst,.csv" onchange="onFile(event)"/>
+      <div class="upload-icon">📁</div>
+      <div class="upload-text"><b>Glissez ou cliquez pour uploader</b>Votre propre document</div>
+      <div class="upload-formats">PDF · TXT · MD · DOCX</div>
+    </div>
+    <div id="file-name" style="font-size:10px;color:var(--text2);margin-top:5px;text-align:center;"></div>
+  </div>
+
+  <!-- Pipeline selector -->
+  <div>
+    <div class="stitle">⚙️ Configuration</div>
+    <div class="flabel">Pipeline à construire</div>
+    <select class="fselect" id="pipe-sel">
+      <option value="both">RAG + KAG (recommandé)</option>
+      <option value="rag">RAG uniquement</option>
+      <option value="kag">KAG uniquement</option>
+    </select>
+  </div>
+
+  <button class="btn btn-red" id="build-btn" onclick="buildDoc()">
+    <span id="bi">🔨</span><span id="bl">Construire les pipelines</span>
+  </button>
+  <div class="pbar-wrap" id="pbw"><div class="pbar" id="pb"></div></div>
+  <div class="build-log" id="blog"></div>
+
+  <!-- HotpotQA fallback -->
+  <div style="border-top:1px solid var(--border);padding-top:12px;">
+    <div class="stitle">🔄 Ou utiliser HotpotQA</div>
+    <div class="flabel">Nombre d'exemples</div>
+    <select class="fselect" id="hq-n">
+      <option value="5">5 exemples (~2 min)</option>
+      <option value="10">10 exemples (~5 min)</option>
+      <option value="20">20 exemples (~15 min)</option>
+    </select>
+    <button class="btn btn-outline" style="margin-top:8px;" onclick="loadHotpot()">📦 Charger HotpotQA</button>
+  </div>
+
+  <!-- History -->
+  <div>
+    <div class="stitle">🕘 Historique</div>
+    <div class="hist-list" id="hist">
+      <div style="font-size:10px;color:var(--text3);text-align:center;padding:10px 0;">Aucune question posée</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── CONTENT ─────────────────────────────────────── -->
+<div class="content">
+
+  <!-- CHAT PANEL -->
+  <div class="tpanel active" id="tp-chat">
+    <div class="msgs" id="msgs">
+      <div class="welcome" id="welcome">
+        <div class="wicon">🤖</div>
+        <h2>Comparez <span>RAG</span> et <span>KAG</span></h2>
+        <p>Uploadez votre document, choisissez votre pipeline et posez des questions. Comparez les réponses des deux approches côte à côte.</p>
+        <div class="steps">
+          <div class="step"><b>1</b> Uploadez un document (PDF/TXT…)</div>
+          <div class="step"><b>2</b> Cliquez "Construire les pipelines"</div>
+          <div class="step"><b>3</b> Posez vos questions en mode Compare</div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3);">Ou chargez HotpotQA pour tester directement :</div>
+        <div class="example-qs">
+          <div class="eq" onclick="useQ(this)">Were Scott Derrickson and Ed Wood of the same nationality?</div>
+          <div class="eq" onclick="useQ(this)">Are the Laleli Mosque and Esma Sultan Mansion in the same neighborhood?</div>
+          <div class="eq" onclick="useQ(this)">The director of "Big Stone Gap" is based in what New York city?</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Eval quick panel -->
+    <div class="eval-panel" id="eval-panel" style="display:none;">
+      <div class="etitle">✅ Évaluation rapide</div>
+      <div class="eval-form">
+        <textarea class="eval-input" id="ev-q" rows="2" placeholder="Question de test..."></textarea>
+        <textarea class="eval-input" id="ev-gt" rows="1" placeholder="Réponse attendue (vérité terrain)..."></textarea>
+        <button class="btn btn-red" onclick="quickEval()" style="width:100%;">📏 Évaluer EM + F1</button>
+      </div>
+      <div id="ev-result" style="display:none;"></div>
+    </div>
+
+    <div class="input-area">
+      <div class="pipe-btns">
+        <button class="pbtn rag active" id="pb-rag" onclick="setP('rag')">🔵 RAG</button>
+        <button class="pbtn kag" id="pb-kag" onclick="setP('kag')">🔴 KAG</button>
+        <button class="pbtn both" id="pb-both" onclick="setP('both')">⚡ Comparer</button>
+        <button class="pbtn" style="margin-left:auto;border-color:rgba(167,139,250,.3);color:var(--purple);" onclick="toggleEval()">✅ Évaluer</button>
+      </div>
+      <div class="ibox">
+        <textarea id="q" rows="1" placeholder="Posez une question sur votre document..." oninput="ar(this)" onkeydown="hk(event)"></textarea>
+        <button class="sbtn" id="sbtn" onclick="send()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MLOPS PANEL -->
+  <div class="tpanel" id="tp-mlops">
+    <div class="mlops-wrap" id="mlops-content">
+      <div class="mgrid">
+        <div class="mcard green"><div class="mval" id="m-tot">0</div><div class="mlbl">Requêtes totales</div><div class="msub">RAG + KAG</div></div>
+        <div class="mcard blue"><div class="mval" id="m-rl">—</div><div class="mlbl">Latence moy. RAG</div><div class="msub">ms/requête</div></div>
+        <div class="mcard red"><div class="mval" id="m-kl">—</div><div class="mlbl">Latence moy. KAG</div><div class="msub">ms/requête</div></div>
+        <div class="mcard purple"><div class="mval" id="m-docs">—</div><div class="mlbl">Docs chargés</div><div class="msub">chunks</div></div>
+      </div>
+
+      <div class="section-box">
+        <div class="sbox-title">📊 Comparaison RAG vs KAG</div>
+        <div class="sbox-body">
+          <div style="margin-bottom:12px;font-size:11px;color:var(--text3);">Latence (ms)</div>
+          <div class="bar-row"><div class="bar-name rag">RAG</div><div class="btrack"><div class="bfill rag" id="br-rl" style="width:0%"></div></div><div class="bval" id="bv-rl">—</div></div>
+          <div class="bar-row"><div class="bar-name kag">KAG</div><div class="btrack"><div class="bfill kag" id="br-kl" style="width:0%"></div></div><div class="bval" id="bv-kl">—</div></div>
+          <div style="margin:12px 0 8px;font-size:11px;color:var(--text3);">Tokens estimés</div>
+          <div class="bar-row"><div class="bar-name rag">RAG</div><div class="btrack"><div class="bfill rag" id="br-rt" style="width:0%"></div></div><div class="bval" id="bv-rt">—</div></div>
+          <div class="bar-row"><div class="bar-name kag">KAG</div><div class="btrack"><div class="bfill kag" id="br-kt" style="width:0%"></div></div><div class="bval" id="bv-kt">—</div></div>
+        </div>
+      </div>
+
+      <!-- Eval results -->
+      <div class="section-box" id="eval-section" style="display:none;">
+        <div class="sbox-title">✅ Métriques d'évaluation (EM + F1)</div>
+        <div class="sbox-body">
+          <div class="eval-grid" id="eval-cards"></div>
+        </div>
+      </div>
+
+      <div class="section-box">
+        <div class="sbox-title">📋 Historique des runs MLflow</div>
+        <div style="overflow-x:auto;">
+          <table><thead><tr><th>Pipeline</th><th>Question</th><th>Latence</th><th>Tokens</th><th>Résultats</th></tr></thead>
+          <tbody id="rtbody"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:16px;">Aucun run</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- ── RIGHT PANEL ─────────────────────────────────── -->
+<aside class="rpanel">
+  <div class="stitle" id="ctx-title">🔗 Contexte utilisé</div>
+  <div id="ctx-panel">
+    <div class="rempty">
+      <div class="icon">🕸️</div>
+      <p>Les documents RAG ou triplets KAG utilisés pour répondre apparaîtront ici.</p>
+    </div>
+  </div>
+</aside>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+let curP = 'rag';
+let hist = [];
+let evalVisible = false;
+let selectedFile = null;
+
+// ── Tabs ───────────────────────────────────────────────
+function tab(name) {
+  document.querySelectorAll('.tpanel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.htab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tp-'+name).classList.add('active');
+  document.getElementById('ht-'+name).classList.add('active');
+  if(name==='mlops') refreshMLOps();
+}
+
+// ── Pipeline selector ──────────────────────────────────
+function setP(p) {
+  curP = p;
+  ['rag','kag','both'].forEach(x=>{
+    const b = document.getElementById('pb-'+x);
+    b.classList.toggle('active',x===p);
+  });
+}
+
+// ── Eval toggle ────────────────────────────────────────
+function toggleEval() {
+  evalVisible = !evalVisible;
+  document.getElementById('eval-panel').style.display = evalVisible ? 'block' : 'none';
+}
+
+// ── File upload ────────────────────────────────────────
+function onDrag(e, over) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.toggle('drag', over);
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f) setFile(f);
+}
+function onFile(e) {
+  const f = e.target.files[0];
+  if(f) setFile(f);
+}
+function setFile(f) {
+  selectedFile = f;
+  document.getElementById('file-name').textContent = '📄 ' + f.name + ' (' + (f.size/1024).toFixed(0) + ' Ko)';
+}
+
+// ── Build pipelines from uploaded doc ─────────────────
+async function buildDoc() {
+  if(!selectedFile) { showToast('err','Veuillez d\'abord uploader un document.'); return; }
+  const btn=document.getElementById('build-btn');
+  const bl=document.getElementById('bl'); const bi=document.getElementById('bi');
+  const pbw=document.getElementById('pbw'); const pb=document.getElementById('pb');
+  const blog=document.getElementById('blog');
+  btn.disabled=true; bl.textContent='Construction...'; bi.textContent='⏳';
+  pbw.style.display='block'; blog.style.display='block';
+  blog.textContent='Lecture de '+selectedFile.name+'...\n';
+
+  let prog=0;
+  const iv=setInterval(()=>{prog=Math.min(prog+1.5,88);pb.style.width=prog+'%';},600);
+
+  const fd=new FormData();
+  fd.append('file',selectedFile);
+  fd.append('pipeline',document.getElementById('pipe-sel').value);
+  fd.append('chunk_size','400');
+
+  try {
+    const r=await fetch('/upload',{method:'POST',body:fd});
+    const d=await r.json();
+    clearInterval(iv); pb.style.width='100%';
+    if(d.error){blog.textContent+=d.error+'\n';showToast('err',d.error);}
+    else {
+      blog.textContent+=`Decoupage : ${d.n_chunks} chunks\n`;
+      if(d.rag_docs) blog.textContent+=`RAG index : ${d.rag_docs} documents\n`;
+      if(d.kag_nodes) blog.textContent+=`KAG graphe : ${d.kag_nodes} entites, ${d.kag_rels} relations\n`;
+      blog.textContent+='Construction terminee!\n';
+      await fetchStats();
+      showToast('ok',`Pipelines construits — ${d.n_chunks} chunks traites`);
+    }
+  } catch(e){ clearInterval(iv); blog.textContent+=e.message; showToast('err','Erreur reseau'); }
+
+  btn.disabled=false; bl.textContent='Reconstruire'; bi.textContent='🔨';
+  setTimeout(()=>{pbw.style.display='none';pb.style.width='0%';},2000);
+}
+
+// ── Load HotpotQA ──────────────────────────────────────
+async function loadHotpot() {
+  const n=document.getElementById('hq-n').value;
+  const btn=document.getElementById('build-btn');
+  const bl=document.getElementById('bl'); const bi=document.getElementById('bi');
+  const pbw=document.getElementById('pbw'); const pb=document.getElementById('pb');
+  const blog=document.getElementById('blog');
+  btn.disabled=true; bl.textContent='Chargement HotpotQA...'; bi.textContent='⏳';
+  pbw.style.display='block'; blog.style.display='block';
+  blog.textContent=`Chargement de ${n} exemples HotpotQA...\n`;
+  let prog=0;
+  const iv=setInterval(()=>{prog=Math.min(prog+1.2,88);pb.style.width=prog+'%';},600);
+  try {
+    const r=await fetch('/load-hotpotqa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({n_samples:parseInt(n)})});
+    const d=await r.json();
+    clearInterval(iv); pb.style.width='100%';
+    blog.textContent+=`RAG: ${d.rag_docs} docs | KAG: ${d.kag_nodes} entites\n`;
+    await fetchStats();
+    showToast('ok',`HotpotQA chargé — KAG: ${d.kag_nodes} entités | RAG: ${d.rag_docs} docs`);
+  } catch(e){ clearInterval(iv); showToast('err','Erreur: '+e.message); }
+  btn.disabled=false; bl.textContent='Construire les pipelines'; bi.textContent='🔨';
+  setTimeout(()=>{pbw.style.display='none';pb.style.width='0%';},2000);
+}
+
+// ── Stats ──────────────────────────────────────────────
+async function fetchStats() {
+  try {
+    const d=await (await fetch('/stats')).json();
+    document.getElementById('kag-n').textContent=(d.kag?.node_count??0).toLocaleString();
+    document.getElementById('kag-r').textContent=(d.kag?.relation_count??0).toLocaleString();
+    document.getElementById('rag-d').textContent=(d.rag?.doc_count??0).toLocaleString();
+    document.getElementById('tot-q').textContent=(d.mlops?.total_runs??0).toLocaleString();
+    document.getElementById('m-docs').textContent=(d.docs_loaded??0).toLocaleString();
+    const ok=(d.kag?.node_count||0)>0||(d.rag?.doc_count||0)>0;
+    const dot=document.getElementById('sdot');
+    dot.classList.toggle('ok',ok);
+    document.getElementById('slabel').textContent=ok?`KAG:${d.kag?.node_count||0} | RAG:${d.rag?.doc_count||0} docs`:'Pipelines non construits';
+  } catch(e){}
+}
+
+// ── Send query ─────────────────────────────────────────
+async function send() {
+  const qi=document.getElementById('q');
+  const question=qi.value.trim();
+  if(!question) return;
+  const sbtn=document.getElementById('sbtn');
+  sbtn.disabled=true; qi.value=''; qi.style.height='auto';
+  hideWelcome(); addHist(question);
+  addMsg('user',question);
+  clearCtx();
+
+  if(curP==='both') {
+    const t1=addTyping('RAG'); const t2=addTyping('KAG');
+    try {
+      const r=await fetch('/compare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question})});
+      const d=await r.json();
+      rmTyping(t1); rmTyping(t2);
+      addCompareRow(question, d.rag, d.kag);
+      renderCtx('kag', d.kag.search_results||[]);
+    } catch(e){ rmTyping(t1); rmTyping(t2); addMsg('bot','Erreur: '+e.message); }
+  } else {
+    const tid=addTyping(curP.toUpperCase());
+    const ep=curP==='rag'?'/rag/query':'/kag/query';
+    try {
+      const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question})});
+      const d=await r.json();
+      rmTyping(tid);
+      addMsg('bot',d.answer,curP,d.latency_ms);
+      renderCtx(curP,d.search_results||[]);
+    } catch(e){ rmTyping(tid); addMsg('bot','Erreur: '+e.message); }
+  }
+  await fetchStats();
+  sbtn.disabled=false;
+}
+
+// ── Compare row ────────────────────────────────────────
+function addCompareRow(q, rag, kag) {
+  const c=document.getElementById('msgs');
+  const el=document.createElement('div');
+  el.className='compare-row';
+  el.innerHTML=`
+    <div class="compare-card rag-card">
+      <div class="compare-label"><span class="badge-rag">🔵 RAG</span><span class="lat-badge">⚡ ${rag.latency_ms}ms</span></div>
+      <div class="compare-answer">${esc(rag.answer)}</div>
+    </div>
+    <div class="compare-card kag-card">
+      <div class="compare-label"><span class="badge-kag">🔴 KAG</span><span class="lat-badge">⚡ ${kag.latency_ms}ms</span></div>
+      <div class="compare-answer">${esc(kag.answer)}</div>
+    </div>`;
+  c.appendChild(el); c.scrollTop=c.scrollHeight;
+}
+
+// ── Quick eval ─────────────────────────────────────────
+async function quickEval() {
+  const q=document.getElementById('ev-q').value.trim();
+  const gt=document.getElementById('ev-gt').value.trim();
+  if(!q||!gt){showToast('err','Question et réponse attendue requises.');return;}
+  const r=await fetch('/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({questions:[q],ground_truths:[gt],pipeline:'both'})});
+  const d=await r.json();
+  const div=document.getElementById('ev-result');
+  div.style.display='block';
+  let html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">';
+  for(const [pipe,res] of Object.entries(d)){
+    const col=pipe==='rag'?'var(--blue)':'var(--red)';
+    html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px;border-top:2px solid ${col};">
+      <div style="font-size:10px;font-weight:700;color:${col};margin-bottom:6px;">${pipe.toUpperCase()}</div>
+      <div style="font-size:11px;color:var(--text2);">EM: <b style="color:var(--text);font-family:'JetBrains Mono'">${res.avg_exact_match}</b></div>
+      <div style="font-size:11px;color:var(--text2);">F1: <b style="color:var(--text);font-family:'JetBrains Mono'">${res.avg_token_f1}</b></div>
+      <div style="font-size:11px;color:var(--text2);">Correct: <b style="color:${res.n_correct>0?'var(--green)':'var(--red)'}">${res.n_correct}/${res.n_questions}</b></div>
+    </div>`;
+  }
+  html+='</div>';
+  div.innerHTML=html;
+}
+
+// ── MLOps ──────────────────────────────────────────────
+async function refreshMLOps() {
+  try {
+    const d=await (await fetch('/mlops/stats')).json();
+    document.getElementById('m-tot').textContent=d.total_runs;
+    document.getElementById('m-rl').textContent=d.avg_latency_rag?d.avg_latency_rag+'ms':'—';
+    document.getElementById('m-kl').textContent=d.avg_latency_kag?d.avg_latency_kag+'ms':'—';
+    const ml=Math.max(d.avg_latency_rag,d.avg_latency_kag,1);
+    document.getElementById('br-rl').style.width=(d.avg_latency_rag/ml*100)+'%';
+    document.getElementById('br-kl').style.width=(d.avg_latency_kag/ml*100)+'%';
+    document.getElementById('bv-rl').textContent=d.avg_latency_rag?d.avg_latency_rag+'ms':'—';
+    document.getElementById('bv-kl').textContent=d.avg_latency_kag?d.avg_latency_kag+'ms':'—';
+    const mt=Math.max(d.avg_tokens_rag,d.avg_tokens_kag,1);
+    document.getElementById('br-rt').style.width=(d.avg_tokens_rag/mt*100)+'%';
+    document.getElementById('br-kt').style.width=(d.avg_tokens_kag/mt*100)+'%';
+    document.getElementById('bv-rt').textContent=d.avg_tokens_rag||'—';
+    document.getElementById('bv-kt').textContent=d.avg_tokens_kag||'—';
+
+    // Eval results
+    if(d.eval_results && Object.keys(d.eval_results).length>0){
+      document.getElementById('eval-section').style.display='block';
+      let html='';
+      for(const[pipe,res] of Object.entries(d.eval_results)){
+        const col=pipe==='rag'?'var(--blue)':'var(--red)';
+        html+=`<div class="eval-card">
+          <div class="eval-pipe ${pipe}">${pipe.toUpperCase()}</div>
+          <div class="eval-row"><span>Exact Match</span><span class="eval-val">${(res.avg_exact_match*100).toFixed(1)}%</span></div>
+          <div class="eval-row"><span>Token F1</span><span class="eval-val">${(res.avg_token_f1*100).toFixed(1)}%</span></div>
+          <div class="eval-row"><span>Précision</span><span class="eval-val">${(res.accuracy*100).toFixed(1)}%</span></div>
+          <div class="eval-row"><span>Correct</span><span class="eval-val">${res.n_correct}/${res.n_questions}</span></div>
+        </div>`;
+      }
+      document.getElementById('eval-cards').innerHTML=html;
+    }
+
+    // History table
+    const tb=document.getElementById('rtbody');
+    if(!d.history||!d.history.length){
+      tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:14px;">Aucun run</td></tr>';
+    } else {
+      tb.innerHTML=d.history.map(r=>`<tr>
+        <td><span class="badge ${r.pipeline==='RAG'?'badge-rag':'badge-kag'}">${r.pipeline}</span></td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.question)}">${esc(r.question)}</td>
+        <td>${r.latency_ms}ms</td><td>~${r.estimated_tokens}</td><td>${r.n_results}</td>
+      </tr>`).join('');
+    }
+  } catch(e){}
+}
+
+// ── Context panel ──────────────────────────────────────
+function clearCtx(){document.getElementById('ctx-panel').innerHTML='<div class="rempty"><div class="icon">⏳</div><p>Interrogation en cours...</p></div>';}
+function renderCtx(pipe, results){
+  const p=document.getElementById('ctx-panel');
+  const t=document.getElementById('ctx-title');
+  if(!results||!results.length){p.innerHTML='<div class="rempty"><div class="icon">🔍</div><p>Aucun résultat trouvé.</p></div>';return;}
+  t.textContent=pipe==='kag'?'🔗 Triplets KAG':'📄 Documents RAG';
+  let html=`<div class="ctx-count">${results.length} ${pipe==='kag'?'triplet':'document'}${results.length>1?'s':''}</div>`;
+  if(pipe==='kag'){
+    results.slice(0,25).forEach(t=>{
+      html+=`<div class="triplet"><div class="triplet-row">
+        <span class="ts">${esc(t.source||'')}</span><span class="arr">──</span>
+        <span class="tr">${esc(t.relation||'')}</span><span class="arr">──▶</span>
+        <span class="to">${esc(t.target||'')}</span>
+      </div></div>`;
+    });
+  } else {
+    results.slice(0,8).forEach((d,i)=>{
+      html+=`<div class="doc-card">
+        <div class="doc-title">[${i+1}] ${esc(d.title||'Document')}</div>
+        <div class="doc-text">${esc((d.text||'').slice(0,200))}...</div>
+      </div>`;
+    });
+  }
+  p.innerHTML=html;
+}
+
+// ── Message helpers ────────────────────────────────────
+function hideWelcome(){const w=document.getElementById('welcome');if(w)w.style.display='none';}
+function addMsg(role,text,pipe='',lat=0){
+  const c=document.getElementById('msgs');
+  const el=document.createElement('div');el.className='msg '+role;
+  const t=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  const pb=pipe?`<span class="badge-${pipe}">${pipe.toUpperCase()}</span>`:'';
+  const lb=lat?`<span class="lat-badge">⚡ ${lat}ms</span>`:'';
+  el.innerHTML=`<div class="mav">${role==='user'?'👤':'🤖'}</div>
+    <div class="mc"><div class="mb">${esc(text)}</div>
+    <div class="mmeta">${t} ${pb} ${lb}</div></div>`;
+  c.appendChild(el);c.scrollTop=c.scrollHeight;
+}
+function addTyping(label=''){
+  const c=document.getElementById('msgs');
+  const id='t'+Date.now();
+  const el=document.createElement('div');el.className='msg bot';el.id=id;
+  el.innerHTML=`<div class="mav">🤖</div><div class="mc"><div class="mb">
+    <div class="typing-dots"><div class="td"></div><div class="td"></div><div class="td"></div>
+    ${label?`<span style="font-size:9px;color:var(--text3);margin-left:5px">${label}...</span>`:''}
+    </div></div></div>`;
+  c.appendChild(el);c.scrollTop=c.scrollHeight;return id;
+}
+function rmTyping(id){const e=document.getElementById(id);if(e)e.remove();}
+function addHist(q){
+  hist.unshift(q);if(hist.length>6)hist.pop();
+  document.getElementById('hist').innerHTML=hist.map((h,i)=>
+    `<div class="hist-item" onclick="useQ2(${i})" title="${esc(h)}">${esc(h)}</div>`).join('');
+}
+function useQ(el){document.getElementById('q').value=el.textContent;document.getElementById('q').focus();}
+function useQ2(i){document.getElementById('q').value=hist[i];document.getElementById('q').focus();}
+function ar(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,90)+'px';}
+function hk(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
+function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function showToast(type,msg){
+  const t=document.createElement('div');t.className='toast '+(type==='ok'?'ok':'err');t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),4000);
+}
+
+// Init
+fetchStats();
+setInterval(fetchStats,20000);
+</script>
+</body>
+</html>
