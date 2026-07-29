@@ -23,6 +23,28 @@ from mlops.tracker import MLOpsTracker
 from document_processor import extract_text_from_file, chunk_text, build_documents_from_chunks
 from evaluation.metrics import evaluate_batch
 
+# Imports optionnels (Ragas, DeepEval, Milvus) — chargés en lazy
+try:
+    from evaluation.ragas_evaluator import RagasEvaluator
+    _ragas_evaluator = None  # instancié à la première requête
+except ImportError:
+    RagasEvaluator = None
+    _ragas_evaluator = None
+
+try:
+    from evaluation.deepeval_evaluator import DeepEvalEvaluator
+    _deepeval_evaluator = None
+except ImportError:
+    DeepEvalEvaluator = None
+    _deepeval_evaluator = None
+
+try:
+    from rag_pipeline.rag_milvus import RAGMilvus
+    _milvus_agent = None  # instancié lors du premier build
+except ImportError:
+    RAGMilvus = None
+    _milvus_agent = None
+
 load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -273,6 +295,112 @@ async def evaluate(req: EvalRequest):
             pass
 
     return results
+
+
+# ── RAG Milvus ────────────────────────────────────────────────────────────────
+class QueryRequest(BaseModel):
+    question: str
+    top_k: int = 5
+
+@app.post("/rag/milvus/query")
+async def rag_milvus_query(req: QueryRequest):
+    global _milvus_agent
+    if _milvus_agent is None or RAGMilvus is None:
+        return JSONResponse({"answer": "Milvus non initialisé. Uploadez un document d'abord.",
+                             "search_results": [], "latency_ms": 0})
+    t0 = time.time()
+    result = _milvus_agent.rag(req.question)
+    lat = round((time.time() - t0) * 1000)
+    tracker.log_run("RAG-Milvus", req.question, result.get("search_results", []),
+                    result["answer"], lat)
+    return {**result, "latency_ms": lat, "pipeline": "RAG-Milvus"}
+
+
+# ── Ragas Evaluation ──────────────────────────────────────────────────────────
+class RagasRequest(BaseModel):
+    questions: list
+    answers: list
+    contexts: list          # liste de listes de strings
+    ground_truths: list
+    pipeline: str = "RAG"
+
+@app.post("/evaluate/ragas")
+async def evaluate_ragas(req: RagasRequest):
+    global _ragas_evaluator
+    if RagasEvaluator is None:
+        return {"error": "Installez ragas : uv add ragas"}
+    if _ragas_evaluator is None:
+        _ragas_evaluator = RagasEvaluator()
+    result = _ragas_evaluator.evaluate(
+        req.questions, req.answers, req.contexts, req.ground_truths, req.pipeline
+    )
+    # Sauvegarde dans eval_results global
+    eval_results[f"ragas_{req.pipeline.lower()}"] = result
+    return result
+
+
+# ── DeepEval Evaluation ───────────────────────────────────────────────────────
+class DeepEvalRequest(BaseModel):
+    questions: list
+    answers: list
+    contexts: list
+    ground_truths: list
+    pipeline: str = "RAG"
+
+@app.post("/evaluate/deepeval")
+async def evaluate_deepeval(req: DeepEvalRequest):
+    global _deepeval_evaluator
+    if DeepEvalEvaluator is None:
+        return {"error": "Installez deepeval : uv add deepeval"}
+    if _deepeval_evaluator is None:
+        _deepeval_evaluator = DeepEvalEvaluator()
+    result = _deepeval_evaluator.evaluate(
+        req.questions, req.answers, req.contexts, req.ground_truths, req.pipeline
+    )
+    eval_results[f"deepeval_{req.pipeline.lower()}"] = result
+    return result
+
+
+# ── Benchmark endpoint ────────────────────────────────────────────────────────
+class BenchmarkRequest(BaseModel):
+    n_questions: int = 5
+    pipelines: list = ["rag", "milvus", "kag"]
+    skip_ragas: bool = True
+
+@app.post("/benchmark/run")
+async def run_benchmark(req: BenchmarkRequest):
+    """Lance le benchmark standardisé et renvoie le rapport JSON."""
+    import subprocess, sys
+    cmd = [
+        sys.executable, "benchmark/run_benchmark.py",
+        "--questions", str(req.n_questions),
+        "--output", "results/benchmark_report.json",
+        "--pipelines",
+    ] + req.pipelines
+    if req.skip_ragas:
+        cmd.append("--skip-ragas")
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              cwd=str(Path(__file__).parent), timeout=600)
+        import json
+        report_path = Path("results/benchmark_report.json")
+        if report_path.exists():
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            return {"status": "ok", "report": report, "stdout": proc.stdout[-2000:]}
+        return {"status": "ok", "stdout": proc.stdout[-2000:], "stderr": proc.stderr[-1000:]}
+    except subprocess.TimeoutExpired:
+        return {"status": "timeout", "message": "Benchmark trop long (>10 min)"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/benchmark/last")
+async def get_last_benchmark():
+    """Retourne le dernier rapport benchmark."""
+    import json
+    report_path = Path("results/benchmark_report.json")
+    if not report_path.exists():
+        return {"status": "no_report", "message": "Aucun benchmark lancé"}
+    return json.loads(report_path.read_text(encoding="utf-8"))
 
 
 @app.get("/mlops/stats")

@@ -1,0 +1,59 @@
+# Configuration du benchmark standardisé
+benchmark:
+  name: "RAG vs KAG — Sujet 03"
+  version: "1.0"
+  author: "MayJomni"
+  description: "Évaluation comparative des architectures RAG et KAG sur HotpotQA"
+
+dataset:
+  source: "HotpotQA"
+  type: "multi-hop Q&A"
+  n_questions_default: 5
+  n_questions_full: 20
+
+pipelines:
+  rag_minsearch:
+    enabled: true
+    description: "RAG avec BM25 (minsearch) — recherche lexicale"
+    retriever: "minsearch"
+    embeddings: null
+    top_k: 5
+  rag_milvus:
+    enabled: true
+    description: "RAG avec Milvus — recherche sémantique dense"
+    retriever: "milvus-lite"
+    embeddings: "sentence-transformers/all-MiniLM-L6-v2"
+    top_k: 5
+  kag:
+    enabled: true
+    description: "KAG avec graphe de connaissances Neo4j/InMemory"
+    graph: "neo4j"
+    graph_fallback: "in-memory"
+    top_k: 20
+
+llm:
+  provider: "Groq"
+  model: "llama-3.1-8b-instant"
+  temperature: 0.0
+
+metrics:
+  baseline:
+    - exact_match
+    - token_f1
+    - latency_ms
+  llm_based:
+    ragas:
+      - faithfulness
+      - answer_relevancy
+      - context_precision
+      - context_recall
+    deepeval:
+      - correctness
+      - anti_hallucination
+      - contextual_relevancy
+
+output:
+  format: json
+  path: "results/benchmark_report.json"
+  include_answers: true
+  include_contexts: false
