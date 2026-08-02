@@ -53,7 +53,8 @@ app = FastAPI(title="Ooredoo AI Lab — RAG vs KAG")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # ── State global ──────────────────────────────────────────────────────────────
-driver = get_neo4j_driver()
+# Utiliser InMemoryGraphDriver directement (bypass timeout Neo4j TCP)
+driver = InMemoryGraphDriver()
 kag_agent = KAGBase(driver=driver)
 rag_agent = RAGHotpotQA()
 tracker   = MLOpsTracker(experiment_name="RAG_vs_KAG")

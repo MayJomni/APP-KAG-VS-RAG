@@ -1,52 +1,57 @@
-# Python
+# === SECRETS (ne JAMAIS commiter) ===
+.env
+*.key
+secrets.json
+
+# === Python ===
 __pycache__/
 *.py[cod]
 *.pyo
-*.pyd
-.Python
 *.egg-info/
 dist/
 build/
-*.egg
+.eggs/
 
-# Environnement virtuel
+# === Environnement virtuel ===
 .venv/
 venv/
 env/
 
-# Variables d'environnement (garder .env.example, ignorer .env)
-.env
-.env.local
-.env.*.local
+# === uv ===
+# uv.lock peut être commité pour la reproductibilité
+# .python-version est utile à garder
 
-# MLflow
-mlruns/
-mlartifacts/
-
-# Bases de données
+# === Données sensibles / grosses ===
 *.db
 *.db-shm
 *.db-wal
-*.sqlite
-*.sqlite3
+data/raw/
+data/downloads/
+mlruns/
+.mlflow/
 
-# Notebooks checkpoints
-.ipynb_checkpoints/
+# === Notebooks — sorties ===
+# Garder les .ipynb mais supprimer les outputs lourds
+# (utiliser nbstripout si besoin)
 
-# Fichiers Windows
-Thumbs.db
-desktop.ini
-
-# IDE
+# === IDEs ===
 .vscode/
 .idea/
 *.swp
+*.swo
+.DS_Store
+Thumbs.db
 
-# Données clonées (clone externe)
-rag_external/
-
-# Gros fichiers de lock (optionnel - garder pour reproductibilité)
-# uv.lock
-
-# Logs
+# === Logs et temps d'exécution ===
 *.log
+server_output.txt
+.deepeval/
+
+# === Cache HuggingFace ===
+.cache/
+~/.cache/huggingface/
+
+# === Fichiers temporaires ===
+tmp/
+temp/
+*.tmp
