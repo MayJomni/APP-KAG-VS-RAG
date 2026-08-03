@@ -75,30 +75,48 @@ FACTUAL_SIGNALS   = {"what year","when was","when did","how many","how much","wh
 BOOLEAN_SIGNALS   = {"were","was","is","are","did","does","have","has","can","could","would"}
 
 def classify_question(question: str) -> dict:
-    """Classifie la question : multi_hop | relational | factual | boolean."""
+    """Classifie la question et retourne les scores pour chaque type (radar chart)."""
     q = question.lower().strip()
 
-    # Vérification par mots-clés (rapide, 0 token)
-    if any(sig in q for sig in MULTIHOP_SIGNALS):
-        return {"type": "multi_hop",  "confidence": 0.90,
-                "reason": "Question compare deux entités ou chaîne plusieurs faits"}
-    if any(sig in q for sig in RELATIONAL_SIGNALS):
-        return {"type": "relational", "confidence": 0.88,
-                "reason": "Question cherche une relation entre entités"}
-    if any(sig in q for sig in FACTUAL_SIGNALS):
-        return {"type": "factual",    "confidence": 0.85,
-                "reason": "Question cherche un fait direct (date, nom, nombre)"}
-    if q.split()[0] in BOOLEAN_SIGNALS:
-        return {"type": "boolean",    "confidence": 0.80,
-                "reason": "Question oui/non sur une propriété"}
+    # Scores continus (0–1) pour chaque dimension
+    mh_hits = sum(1 for sig in MULTIHOP_SIGNALS  if sig in q)
+    re_hits = sum(1 for sig in RELATIONAL_SIGNALS if sig in q)
+    fa_hits = sum(1 for sig in FACTUAL_SIGNALS    if sig in q)
+    bo_hit  = 1 if (q.split() and q.split()[0] in BOOLEAN_SIGNALS) else 0
 
-    # Fallback LLM léger (si aucun signal clair)
-    sys_p = ("Classify this question in ONE word only: "
-             "multi_hop | relational | factual | boolean. "
-             "No explanation, just the word.")
-    result = llm(sys_p, question, max_tokens=5).strip().lower()
-    q_type = result if result in ("multi_hop","relational","factual","boolean") else "factual"
-    return {"type": q_type, "confidence": 0.70, "reason": "Classifié par LLM"}
+    type_scores = {
+        "multi_hop":  min(100, mh_hits * 45 + (15 if mh_hits else 0)),
+        "relational": min(100, re_hits * 40 + (10 if re_hits else 0)),
+        "factual":    min(100, fa_hits * 45 + (10 if fa_hits else 0)),
+        "boolean":    bo_hit * 70,
+    }
+
+    # Ajouter un bruit de base pour que le radar soit lisible
+    for k in type_scores:
+        if type_scores[k] == 0:
+            type_scores[k] = 5   # bruit minimal visible
+
+    # Trouver le type dominant
+    if mh_hits:
+        q_type, confidence, reason = "multi_hop",  0.90, "Compare deux entités ou chaîne plusieurs faits"
+    elif re_hits:
+        q_type, confidence, reason = "relational", 0.88, "Cherche une relation entre entités"
+    elif fa_hits:
+        q_type, confidence, reason = "factual",    0.85, "Cherche un fait direct (date, nom, nombre)"
+    elif bo_hit:
+        q_type, confidence, reason = "boolean",    0.80, "Question oui/non sur une propriété"
+    else:
+        # Fallback LLM léger
+        sys_p = ("Classify this question in ONE word: multi_hop | relational | factual | boolean. "
+                 "Just the word, no explanation.")
+        res = llm(sys_p, question, max_tokens=5).strip().lower()
+        q_type    = res if res in ("multi_hop","relational","factual","boolean") else "factual"
+        confidence, reason = 0.70, "Classifié par LLM"
+        type_scores[q_type] = max(type_scores[q_type], 60)
+
+    return {"type": q_type, "confidence": confidence,
+            "reason": reason, "type_scores": type_scores}
+
 
 def route_question(question: str) -> dict:
     """Décide le meilleur pipeline : rag | kag | ensemble."""
@@ -423,19 +441,61 @@ async def stats():
 
 @app.get("/mlops/stats")
 async def mlops_stats():
-    rag_lats = [r["latency_ms"] for r in run_log if r.get("pipeline")=="RAG"]
-    kag_lats = [r["latency_ms"] for r in run_log if r.get("pipeline")=="KAG"]
-    history  = [{"pipeline": r["pipeline"], "question": r["question"][:60],
-                 "latency_ms": r["latency_ms"], "estimated_tokens": 200, "n_results": 5}
-                for r in run_log[-20:]]
+    rag_runs = [r for r in run_log if r.get("pipeline")=="RAG"]
+    kag_runs = [r for r in run_log if r.get("pipeline")=="KAG"]
+    cmp_runs = [r for r in run_log if r.get("pipeline")=="COMPARE"]
+    smart_runs = [r for r in run_log if str(r.get("pipeline","")).startswith("SMART")]
+
+    rag_lats = [r["latency_ms"] for r in rag_runs]
+    kag_lats = [r["latency_ms"] for r in kag_runs]
+
+    # EM / F1 accumulés depuis compare et smart
+    rag_ems = [r["em"] for r in run_log if r.get("rag_em") is not None]
+    kag_ems = [r["em"] for r in run_log if r.get("kag_em") is not None]
+    rag_f1s = [r["f1"] for r in run_log if r.get("rag_f1") is not None]
+    kag_f1s = [r["f1"] for r in run_log if r.get("kag_f1") is not None]
+
+    # Stats depuis routing_log (plus complet)
+    routing_ems_rag = [r["em"] for r in routing_log
+                       if r.get("winner")=="rag" and r.get("em") is not None]
+    routing_ems_kag = [r["em"] for r in routing_log
+                       if r.get("winner")=="kag" and r.get("em") is not None]
+
+    history = [{"pipeline": r["pipeline"],
+                "question": r["question"][:60],
+                "latency_ms": r["latency_ms"],
+                "estimated_tokens": 200,
+                "n_results": 5,
+                "rag_em": r.get("rag_em"),
+                "kag_em": r.get("kag_em"),
+                "rag_f1": r.get("rag_f1"),
+                "kag_f1": r.get("kag_f1")}
+               for r in run_log[-30:]]
+
+    # Scores comparés depuis run_log COMPARE
+    compare_runs_with_scores = [r for r in run_log if r.get("rag_em") is not None]
+    avg_rag_em = round(sum(r["rag_em"] for r in compare_runs_with_scores)/len(compare_runs_with_scores), 3) if compare_runs_with_scores else None
+    avg_kag_em = round(sum(r["kag_em"] for r in compare_runs_with_scores)/len(compare_runs_with_scores), 3) if compare_runs_with_scores else None
+    avg_rag_f1 = round(sum(r["rag_f1"] for r in compare_runs_with_scores)/len(compare_runs_with_scores), 3) if compare_runs_with_scores else None
+    avg_kag_f1 = round(sum(r["kag_f1"] for r in compare_runs_with_scores)/len(compare_runs_with_scores), 3) if compare_runs_with_scores else None
+
     return {
-        "total_runs": len(run_log),
-        "avg_latency_rag": round(sum(rag_lats)/len(rag_lats)) if rag_lats else 0,
+        "total_runs":       len(run_log),
+        "rag_runs":         len(rag_runs),
+        "kag_runs":         len(kag_runs),
+        "compare_runs":     len(cmp_runs),
+        "smart_runs":       len(smart_runs),
+        "avg_latency_rag":  round(sum(rag_lats)/len(rag_lats)) if rag_lats else 0,
         "avg_latency_milvus": 0,
-        "avg_latency_kag": round(sum(kag_lats)/len(kag_lats)) if kag_lats else 0,
-        "history": history,
-        "eval_results": {}
+        "avg_latency_kag":  round(sum(kag_lats)/len(kag_lats)) if kag_lats else 0,
+        "avg_rag_em":       avg_rag_em,
+        "avg_kag_em":       avg_kag_em,
+        "avg_rag_f1":       avg_rag_f1,
+        "avg_kag_f1":       avg_kag_f1,
+        "history":          history,
+        "eval_results":     {}
     }
+
 
 class QueryReq(BaseModel):
     question: str
@@ -472,20 +532,25 @@ async def compare(req: CompareReq):
     rag = rag_answer(req.question)
     kag = kag_answer(req.question)
     gt  = req.ground_truth
+    rag_em = exact_match(rag["answer"],gt) if gt else None
+    kag_em = exact_match(kag["answer"],gt) if gt else None
+    rag_f1 = token_f1(rag["answer"],gt)   if gt else None
+    kag_f1 = token_f1(kag["answer"],gt)   if gt else None
     result = {
         "question": req.question,
         "ground_truth": gt,
-        "rag": {**rag,
-                "em": exact_match(rag["answer"],gt) if gt else None,
-                "f1": token_f1(rag["answer"],gt)   if gt else None},
-        "kag": {**kag,
-                "em": exact_match(kag["answer"],gt) if gt else None,
-                "f1": token_f1(kag["answer"],gt)    if gt else None},
+        "rag": {**rag, "em": rag_em, "f1": rag_f1},
+        "kag": {**kag, "em": kag_em, "f1": kag_f1},
         "total_ms": round((time.time()-t0)*1000)
     }
-    run_log.append({"pipeline":"COMPARE","question":req.question,
-                    "answer":f"RAG:{rag['answer']} | KAG:{kag['answer']}",
-                    "latency_ms":result["total_ms"]})
+    run_log.append({
+        "pipeline": "COMPARE", "question": req.question,
+        "answer": f"RAG:{rag['answer']} | KAG:{kag['answer']}",
+        "latency_ms": result["total_ms"],
+        "rag_em": rag_em, "kag_em": kag_em,
+        "rag_f1": rag_f1, "kag_f1": kag_f1,
+        "rag_lat": rag["latency_ms"], "kag_lat": kag["latency_ms"]
+    })
     return result
 
 @app.post("/evaluate")
