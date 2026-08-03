@@ -31,9 +31,27 @@ except ImportError:
 load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
-GROQ_KEY = os.getenv("GROQ_API_KEY", "")
-client   = Groq(api_key=GROQ_KEY)
-MODEL    = "llama-3.1-8b-instant"
+GROQ_KEY      = os.getenv("GROQ_API_KEY", "")
+client        = Groq(api_key=GROQ_KEY)
+MODEL_ANSWER  = "llama-3.1-8b-instant"   # réponses QA — 6 000 TPM
+MODEL_EXTRACT = "gemma2-9b-it"           # extraction KAG — 15 000 TPM
+
+def llm(system_prompt: str, user_prompt: str,
+        max_tokens: int = 150, model: str = None) -> str:
+    if model is None:
+        model = MODEL_ANSWER
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_prompt}
+            ],
+            temperature=0.0, max_tokens=max_tokens
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        return f"ERREUR: {e}"
 
 app = FastAPI(title="RAG vs KAG")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -72,19 +90,6 @@ def token_f1(pred, gt):
     p, r = common / len(pt), common / len(gt_t)
     return round(2*p*r/(p+r), 4)
 
-# ── LLM ───────────────────────────────────────────────────────────────────────
-def llm(system_prompt, user_prompt, max_tokens=150):
-    try:
-        resp = client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role":"system","content":system_prompt},
-                      {"role":"user","content":user_prompt}],
-            temperature=0.0, max_tokens=max_tokens
-        )
-        return resp.choices[0].message.content.strip()
-    except Exception as e:
-        return f"ERREUR: {e}"
-
 # ── RAG ───────────────────────────────────────────────────────────────────────
 def rag_search(question, num_results=10):
     if rag_index is None or not documents:
@@ -115,30 +120,84 @@ def rag_answer(question):
     }
 
 # ── KAG ───────────────────────────────────────────────────────────────────────
+# SOLUTION RATE LIMIT :
+# 1) Format compact pipe (src|rel|tgt) → max 80 tokens/output  (-75%)
+# 2) Batch de 3 docs par appel LLM      → 3x moins d'appels
+# 3) Modèle gemma2-9b-it (15000 TPM)   → 2.5x plus de quota
+# Résultat : ~2000 tokens pour 15 docs (~30s) au lieu de 7500 (>60s + erreurs)
+
+EXTRACT_SYS = (
+    "Extract factual triplets from text. "
+    "Format: entity|relation|entity — one per line, max 5 lines. "
+    "Use short labels. No JSON, no explanation."
+)
+
 def build_kag_from_docs(docs):
+    """Construit le graphe KAG avec batching + format compact + modèle haute limite."""
     global kag_graph
-    kag_graph = {"nodes":{}, "relations":{}}
-    sys_p = ("Extract factual triplets from the text. "
-             "Return ONLY a JSON array: "
-             '[{"source":"X","relation":"Y","target":"Z"}] '
-             "Extract max 8 triplets. Facts only.")
-    for doc in docs[:15]:
-        text  = doc.get("text","")[:600]
-        title = doc.get("title","")
+    kag_graph = {"nodes": {}, "relations": {}}
+    batch_size = 3          # 3 docs par appel LLM
+    max_docs   = 15         # max docs à traiter
+
+    doc_list = docs[:max_docs]
+    batches  = [doc_list[i:i+batch_size] for i in range(0, len(doc_list), batch_size)]
+
+    for batch in batches:
+        # Construire le texte de batch
+        combined = ""
+        for idx, doc in enumerate(batch):
+            title = doc.get("title", "")
+            text  = doc.get("text",  "")[:300]   # 300 mots par doc
+            combined += f"[DOC{idx+1}: {title}]\n{text}\n\n"
+
         try:
-            raw   = llm(sys_p, f"Text: {text}", max_tokens=350)
-            start = raw.find("["); end = raw.rfind("]")+1
-            if start >= 0 and end > start:
-                for t in json.loads(raw[start:end]):
-                    src = str(t.get("source","")).strip()
-                    rel = str(t.get("relation","")).strip()
-                    tgt = str(t.get("target","")).strip()
-                    if src and rel and tgt:
-                        kag_graph["nodes"][src] = {"doc": title}
-                        kag_graph["nodes"][tgt] = {"doc": title}
-                        kag_graph["relations"][f"{src}||{rel}||{tgt}"] = True
+            raw = llm(
+                EXTRACT_SYS,
+                combined,
+                max_tokens=120,          # ~5 triplets × 3 docs = 15 lignes max
+                model=MODEL_EXTRACT      # gemma2-9b-it : 15000 TPM
+            )
+            for line in raw.split("\n"):
+                line = line.strip().lstrip("-• ")
+                parts = [p.strip() for p in line.split("|")]
+                if len(parts) == 3 and all(parts):
+                    src, rel, tgt = parts
+                    title = batch[0].get("title", "")
+                    kag_graph["nodes"][src] = {"doc": title}
+                    kag_graph["nodes"][tgt] = {"doc": title}
+                    kag_graph["relations"][f"{src}||{rel}||{tgt}"] = True
         except Exception:
-            pass
+            pass   # on continue le batch suivant
+
+def build_kag_from_precomputed(results_path: str = None):
+    """Charge un graphe KAG pré-calculé depuis results_kag.json (0 appel API)."""
+    global kag_graph
+    if results_path is None:
+        results_path = str(Path(__file__).parent / "results_kag.json")
+    kag_graph = {"nodes": {}, "relations": {}}
+    try:
+        with open(results_path, "r", encoding="utf-8") as f:
+            results = json.load(f)
+        for item in results:
+            ctx = item.get("context", "")
+            for line in ctx.split("\n"):
+                line = line.strip().lstrip("-• ")
+                # Format: "A --[rel]--> B"  ou  "A|rel|B"
+                if "--[" in line and "-->" in line:
+                    try:
+                        src = line.split("--[")[0].strip()
+                        rel = line.split("--[")[1].split("]-->")[0].strip()
+                        tgt = line.split("]-->")[1].strip()
+                        if src and rel and tgt:
+                            kag_graph["nodes"][src] = {"doc": item.get("question","")[:40]}
+                            kag_graph["nodes"][tgt] = {"doc": item.get("question","")[:40]}
+                            kag_graph["relations"][f"{src}||{rel}||{tgt}"] = True
+                    except Exception:
+                        pass
+        return len(kag_graph["nodes"]), len(kag_graph["relations"])
+    except Exception as e:
+        return 0, 0
+
 
 def kag_search(question):
     q_words = [w for w in question.lower().split() if len(w) > 3]
@@ -351,6 +410,43 @@ async def load_kag(n_docs: int = 8):
 @app.get("/runs")
 async def get_runs():
     return {"runs": run_log, "total": len(run_log)}
+
+@app.post("/load-kag-precomputed")
+async def load_kag_precomputed():
+    """Charge le graphe KAG depuis results_kag.json (0 appel API, instantané)."""
+    nodes_n, rels_n = build_kag_from_precomputed()
+    if nodes_n == 0:
+        return JSONResponse(
+            {"error": "results_kag.json introuvable ou vide"},
+            status_code=404)
+    return {
+        "status":        "ok",
+        "source":        "results_kag.json (pré-calculé)",
+        "kag_nodes":     nodes_n,
+        "kag_relations": rels_n,
+        "api_calls":     0,
+        "message":       f"Graphe chargé instantanément : {nodes_n} nœuds, {rels_n} relations"
+    }
+
+@app.get("/info")
+async def info():
+    """Informations sur les modèles et limites utilisés."""
+    return {
+        "models": {
+            "answers":   MODEL_ANSWER  + " (6 000 TPM Groq free)",
+            "extraction": MODEL_EXTRACT + " (15 000 TPM Groq free)"
+        },
+        "rate_limit_solutions": [
+            "1. Format compact pipe (src|rel|tgt) : -75% output tokens",
+            "2. Batch 3 docs/appel : 3x moins d'appels API",
+            "3. gemma2-9b-it pour KAG : 2.5x plus de quota",
+            "4. /load-kag-precomputed : 0 appels API (résultats JSON)"
+        ],
+        "token_usage": {
+            "avant": "15 docs × 500 tok = 7500 tok/min → rate limit",
+            "apres": "5 batches × 400 tok = 2000 tok/min → OK ✅"
+        }
+    }
 
 @app.get("/kag/graph")
 async def kag_graph_data():

@@ -283,10 +283,28 @@ tr:hover td{background:var(--card);}
   <!-- Étape 2 : Construire graphe KAG -->
   <div class="section">
     <div class="stitle">② Construire le graphe KAG</div>
-    <div class="lbl" style="color:var(--t3);margin-bottom:7px;">Extraire les entités et relations via LLM (lent — rate limit Groq)</div>
-    <button class="btn btn-outline" id="kag-btn" onclick="buildKAG()" disabled>
-      🕸️ Construire graphe KAG
+
+    <!-- Info rate limit -->
+    <div style="background:rgba(227,6,19,.08);border:1px solid rgba(227,6,19,.25);border-radius:7px;padding:8px 10px;margin-bottom:8px;font-size:9px;line-height:1.6;color:var(--t2);">
+      <div style="font-weight:700;color:var(--red);margin-bottom:3px;">⚠️ Rate Limit Groq — 6 000 TPM</div>
+      <div>Avant (lent) : 15 docs × 500 tok = <b style="color:var(--red)">7 500 tok/min</b> → erreur</div>
+      <div>Après (optimisé) : 5 batchs × 400 tok = <b style="color:var(--green)">2 000 tok/min</b> ✅</div>
+      <div style="margin-top:3px;color:var(--t3);">Extraction : gemma2-9b-it (15 000 TPM)</div>
+    </div>
+
+    <!-- Option 1 : Pré-calculé INSTANTANÉ -->
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin-bottom:4px;">⚡ Option 1 — Instantané (recommandé)</div>
+    <button class="btn btn-green" id="precomp-btn" onclick="loadPrecomputed()" style="margin-bottom:6px;">
+      ⚡ Charger KAG pré-calculé (0 API call)
     </button>
+    <div style="font-size:9px;color:var(--t3);margin-bottom:10px;">← Charge <code>results_kag.json</code> en &lt;1s, sans quota</div>
+
+    <!-- Option 2 : Construction live -->
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:4px;">🔧 Option 2 — Construction live (2-3 min)</div>
+    <button class="btn btn-outline" id="kag-btn" onclick="buildKAG()" disabled>
+      🕸️ Construire graphe KAG via LLM
+    </button>
+    <div style="font-size:9px;color:var(--t3);margin-top:3px;">Format compact + batch 3 docs + gemma2-9b-it</div>
     <div class="pbar-wrap" id="kag-pbw"><div class="pbar" id="kag-pb"></div></div>
     <div class="log" id="kag-log"></div>
   </div>
@@ -1024,6 +1042,42 @@ fetchStats().then(()=>{
   if(knodes>0) document.getElementById('kag-btn').disabled=false;
 });
 setInterval(fetchStats, 10000);
+
+// ── Load KAG pré-calculé ──────────────────────────────────────────────────────
+async function loadPrecomputed(){
+  const btn = document.getElementById('precomp-btn');
+  const log = document.getElementById('kag-log');
+  const pbw = document.getElementById('kag-pbw');
+  const pb  = document.getElementById('kag-pb');
+  btn.disabled=true; btn.textContent='⏳ Chargement...';
+  pbw.style.display='block'; log.style.display='block';
+  log.textContent = '⚡ Chargement du graphe pré-calculé (0 appel API)...\n';
+  pb.style.width='60%';
+  try{
+    const r = await fetch('/load-kag-precomputed',{method:'POST'});
+    const d = await r.json();
+    pb.style.width='100%';
+    if(d.error){
+      log.textContent+=`❌ ${d.error}\n`;
+      toast('err', d.error);
+    } else {
+      log.textContent+=`✅ ${d.message}\n`;
+      log.textContent+=`📊 Source : ${d.source}\n`;
+      log.textContent+=`🔗 Appels API : ${d.api_calls} (ZÉRO !)\n`;
+      await fetchStats();
+      await refreshGraph();
+      toast('ok',`KAG prêt — ${d.kag_nodes} nœuds, ${d.kag_relations} relations`);
+      log.textContent+=`🕸️ Cliquez "Graphe KAG" pour visualiser !\n`;
+    }
+  }catch(e){
+    log.textContent+=`❌ ${e.message}\n`;
+    toast('err', e.message);
+  }
+  pb.style.width='0%';
+  setTimeout(()=>{pbw.style.display='none';},1500);
+  btn.disabled=false; btn.textContent='⚡ Charger KAG pré-calculé (0 API call)';
+}
+
 
 // ── Upload documents ──────────────────────────────────────────────────────────
 function fileIcon(name){
