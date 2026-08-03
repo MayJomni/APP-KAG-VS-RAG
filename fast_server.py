@@ -57,10 +57,115 @@ app = FastAPI(title="RAG vs KAG")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # ── State ──────────────────────────────────────────────────────────────────────
-rag_index   = None
-documents   = []
-kag_graph   = {"nodes": {}, "relations": {}}
-run_log     = []   # {"pipeline","question","answer","latency_ms"}
+rag_index    = None
+documents    = []
+kag_graph    = {"nodes": {}, "relations": {}}
+run_log      = []   # {pipeline, question, answer, latency_ms}
+routing_log  = []   # {question, type, routed_to, reason, confidence}
+
+# ── Routing Agent ──────────────────────────────────────────────────────────────
+# Signaux linguistiques pour la classification de questions
+MULTIHOP_SIGNALS  = {"same nationality","both","also","were they","did they","same country",
+                     "same city","same field","same genre","who is also","who was also"}
+RELATIONAL_SIGNALS= {"father of","mother of","son of","daughter of","founded by","created by",
+                     "directed by","produced by","who played","who portrayed","who held",
+                     "what position","what role","what government","relationship between"}
+FACTUAL_SIGNALS   = {"what year","when was","when did","how many","how much","what is the name",
+                     "what was the name","in what year","what date","how old","what number"}
+BOOLEAN_SIGNALS   = {"were","was","is","are","did","does","have","has","can","could","would"}
+
+def classify_question(question: str) -> dict:
+    """Classifie la question : multi_hop | relational | factual | boolean."""
+    q = question.lower().strip()
+
+    # Vérification par mots-clés (rapide, 0 token)
+    if any(sig in q for sig in MULTIHOP_SIGNALS):
+        return {"type": "multi_hop",  "confidence": 0.90,
+                "reason": "Question compare deux entités ou chaîne plusieurs faits"}
+    if any(sig in q for sig in RELATIONAL_SIGNALS):
+        return {"type": "relational", "confidence": 0.88,
+                "reason": "Question cherche une relation entre entités"}
+    if any(sig in q for sig in FACTUAL_SIGNALS):
+        return {"type": "factual",    "confidence": 0.85,
+                "reason": "Question cherche un fait direct (date, nom, nombre)"}
+    if q.split()[0] in BOOLEAN_SIGNALS:
+        return {"type": "boolean",    "confidence": 0.80,
+                "reason": "Question oui/non sur une propriété"}
+
+    # Fallback LLM léger (si aucun signal clair)
+    sys_p = ("Classify this question in ONE word only: "
+             "multi_hop | relational | factual | boolean. "
+             "No explanation, just the word.")
+    result = llm(sys_p, question, max_tokens=5).strip().lower()
+    q_type = result if result in ("multi_hop","relational","factual","boolean") else "factual"
+    return {"type": q_type, "confidence": 0.70, "reason": "Classifié par LLM"}
+
+def route_question(question: str) -> dict:
+    """Décide le meilleur pipeline : rag | kag | ensemble."""
+    kag_ready = len(kag_graph["nodes"]) > 5
+    rag_ready = rag_index is not None and len(documents) > 0
+    clf       = classify_question(question)
+    q_type    = clf["type"]
+
+    # Règles de routage
+    if not kag_ready and not rag_ready:
+        return {**clf, "pipeline": "none",
+                "reason": "Aucun pipeline disponible — chargez des données d'abord"}
+
+    if not kag_ready:
+        return {**clf, "pipeline": "rag",
+                "reason": f"KAG non disponible (graphe vide). RAG utilisé pour question {q_type}"}
+
+    if not rag_ready:
+        return {**clf, "pipeline": "kag",
+                "reason": f"RAG non disponible. KAG utilisé pour question {q_type}"}
+
+    # Les deux sont disponibles — appliquer la stratégie de routage
+    if q_type == "multi_hop":
+        return {**clf, "pipeline": "kag",
+                "reason": "KAG privilégié : question multi-sauts → raisonnement sur le graphe"}
+    if q_type == "relational":
+        return {**clf, "pipeline": "kag",
+                "reason": "KAG privilégié : question relationnelle → triplets du graphe"}
+    if q_type == "factual":
+        return {**clf, "pipeline": "rag",
+                "reason": "RAG privilégié : question factuelle directe → passages textuels"}
+    if q_type == "boolean":
+        # Booléen : les deux sont bons, ensemble
+        return {**clf, "pipeline": "ensemble",
+                "reason": "Ensemble : question booléenne → RAG + KAG + agent arbitre"}
+
+    return {**clf, "pipeline": "ensemble",
+            "reason": "Incertain → Ensemble RAG + KAG pour plus de robustesse"}
+
+def ensemble_answer(question: str, rag: dict, kag: dict, routing: dict) -> dict:
+    """Agent arbitre : choisit la meilleure réponse entre RAG et KAG."""
+    rag_ans = rag.get("answer","")
+    kag_ans = kag.get("answer","")
+
+    # Si l'un dit 'I don't know', prendre l'autre
+    if "don't know" in kag_ans.lower() and "don't know" not in rag_ans.lower():
+        return {"winner": "rag", "answer": rag_ans,
+                "reason": "KAG sans données suffisantes → RAG sélectionné"}
+    if "don't know" in rag_ans.lower() and "don't know" not in kag_ans.lower():
+        return {"winner": "kag", "answer": kag_ans,
+                "reason": "RAG sans contexte suffisant → KAG sélectionné"}
+
+    # Si les deux répondent, demander à l'agent LLM d'arbitrer
+    sys_p = ("You are an arbitration agent. Given a question and two answers, "
+             "choose the most accurate and concise one. "
+             "Reply with ONLY: 'RAG: <reason>' or 'KAG: <reason>'.")
+    prompt = (f"QUESTION: {question}\n\n"
+              f"ANSWER_RAG: {rag_ans}\n\n"
+              f"ANSWER_KAG: {kag_ans}")
+    verdict = llm(sys_p, prompt, max_tokens=60)
+
+    if verdict.upper().startswith("KAG"):
+        return {"winner": "kag", "answer": kag_ans,
+                "reason": verdict.replace("KAG:","").strip()}
+    else:
+        return {"winner": "rag", "answer": rag_ans,
+                "reason": verdict.replace("RAG:","").strip()}
 
 # ── Métriques ─────────────────────────────────────────────────────────────────
 YES_SYNONYMS = {"yes", "yeah", "yep", "both", "same", "correct", "true", "american", "indeed"}
@@ -355,6 +460,119 @@ async def evaluate(req: EvalReq):
                                              req.ground_truths,ems,f1s)]
         }
     return results
+
+# ── Smart Agent endpoints ──────────────────────────────────────────────────────
+
+class SmartReq(BaseModel):
+    question:     str
+    ground_truth: str = ""
+
+@app.get("/route")
+async def preview_route(question: str = Query(...)):
+    """Prévisualise la décision de routage sans exécuter le pipeline."""
+    routing = route_question(question)
+    return routing
+
+@app.post("/smart")
+async def smart_query(req: SmartReq):
+    """
+    Agent intelligent : classe la question → route vers RAG/KAG/Ensemble
+    → si Ensemble : arbitrage LLM pour choisir la meilleure réponse.
+    """
+    t0      = time.time()
+    gt      = req.ground_truth.strip()
+    routing = route_question(req.question)
+    pipe    = routing["pipeline"]
+
+    result  = {
+        "question":  req.question,
+        "routing":   routing,
+        "pipeline_used": pipe,
+    }
+
+    if pipe == "none":
+        result["answer"]     = "Aucun pipeline disponible."
+        result["latency_ms"] = 0
+        return result
+
+    if pipe == "rag":
+        ans = rag_answer(req.question)
+        result.update({
+            "answer":     ans["answer"],
+            "context":    ans.get("context",""),
+            "sources":    ans.get("sources",[]),
+            "latency_ms": ans["latency_ms"],
+            "winner":     "rag",
+        })
+
+    elif pipe == "kag":
+        ans = kag_answer(req.question)
+        result.update({
+            "answer":   ans["answer"],
+            "context":  ans.get("context",""),
+            "triplets": ans.get("triplets",[]),
+            "latency_ms": ans["latency_ms"],
+            "winner":   "kag",
+        })
+
+    else:  # ensemble
+        rag = rag_answer(req.question)
+        kag = kag_answer(req.question)
+        arb = ensemble_answer(req.question, rag, kag, routing)
+        result.update({
+            "answer":       arb["answer"],
+            "winner":       arb["winner"],
+            "arb_reason":   arb["reason"],
+            "rag_answer":   rag["answer"],
+            "kag_answer":   kag["answer"],
+            "rag_context":  rag.get("context",""),
+            "kag_triplets": kag.get("triplets",[]),
+            "latency_ms":   round((time.time()-t0)*1000),
+        })
+
+    # Métriques EM / F1
+    if gt:
+        result["em"] = exact_match(result["answer"], gt)
+        result["f1"] = token_f1(result["answer"], gt)
+
+    # Log routage
+    routing_log.append({
+        "question":   req.question,
+        "type":       routing["type"],
+        "routed_to":  pipe,
+        "winner":     result.get("winner", pipe),
+        "reason":     routing["reason"],
+        "confidence": routing["confidence"],
+        "em":         result.get("em"),
+    })
+    run_log.append({
+        "pipeline":   f"SMART→{pipe.upper()}",
+        "question":   req.question,
+        "answer":     result["answer"],
+        "latency_ms": result.get("latency_ms",0)
+    })
+    return result
+
+@app.get("/routing/stats")
+async def routing_stats():
+    """Statistiques du routing agent : distribution RAG/KAG/Ensemble."""
+    if not routing_log:
+        return {"total": 0, "distribution": {}, "history": []}
+
+    from collections import Counter
+    dist = Counter(r["routed_to"] for r in routing_log)
+    type_dist = Counter(r["type"] for r in routing_log)
+    winner_dist = Counter(r.get("winner","?") for r in routing_log)
+
+    ems = [r["em"] for r in routing_log if r.get("em") is not None]
+    return {
+        "total":          len(routing_log),
+        "distribution":   dict(dist),
+        "type_distribution": dict(type_dist),
+        "winner_distribution": dict(winner_dist),
+        "avg_em":         round(sum(ems)/len(ems), 3) if ems else None,
+        "history":        routing_log[-20:]   # 20 dernières décisions
+    }
 
 @app.post("/load-hotpotqa")
 async def load_hotpotqa(req: Optional[LoadHotpotReq] = None,

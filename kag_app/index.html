@@ -213,6 +213,50 @@ tr:hover td{background:var(--card);}
 .toast{position:fixed;bottom:16px;right:16px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;font-size:11px;display:flex;align-items:center;gap:7px;animation:fi .3s ease;z-index:9999;}
 .toast.ok{border-color:rgba(34,197,94,.4);color:var(--green);}
 .toast.err{border-color:rgba(227,6,19,.5);color:#ff6060;}
+
+/* ── AGENT PANEL ── */
+.agent-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:14px;gap:10px;}
+.agent-input-zone{display:flex;gap:8px;flex-shrink:0;}
+.agent-input{flex:1;background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--t1);font-family:'Inter',sans-serif;resize:none;outline:none;}
+.agent-input:focus{border-color:var(--yellow);}
+.agent-send{background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.4);color:var(--yellow);border-radius:8px;padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;}
+.agent-send:hover{background:rgba(251,191,36,.25);}
+.agent-chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:8px;}
+.agent-chat::-webkit-scrollbar{width:3px;}
+.route-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;}
+.route-header{padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.q-type-badge{font-size:9px;font-weight:700;padding:3px 9px;border-radius:100px;text-transform:uppercase;letter-spacing:.8px;}
+.q-type-badge.multi_hop{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
+.q-type-badge.relational{background:rgba(227,6,19,.1);color:var(--red);border:1px solid rgba(227,6,19,.3);}
+.q-type-badge.factual{background:rgba(56,189,248,.1);color:var(--blue);border:1px solid rgba(56,189,248,.3);}
+.q-type-badge.boolean{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+.route-decision{padding:10px 14px;display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid var(--bdr);}
+.route-icon{font-size:22px;flex-shrink:0;}
+.route-pipeline{font-size:12px;font-weight:700;}
+.route-reason{font-size:10px;color:var(--t2);margin-top:2px;}
+.conf-bar{width:100%;height:4px;background:var(--card);border-radius:100px;margin-top:6px;overflow:hidden;}
+.conf-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--blue),var(--green));transition:width 1s ease;}
+.route-answer{padding:12px 14px;}
+.winner-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;margin-bottom:6px;}
+.winner-badge.rag{background:rgba(56,189,248,.1);color:var(--blue);border:1px solid rgba(56,189,248,.3);}
+.winner-badge.kag{background:rgba(227,6,19,.1);color:var(--red);border:1px solid rgba(227,6,19,.3);}
+.winner-badge.ensemble{background:rgba(251,191,36,.1);color:var(--yellow);border:1px solid rgba(251,191,36,.3);}
+.agent-answer-text{font-size:13px;color:var(--t1);line-height:1.6;}
+.route-ensemble{padding:10px 14px;background:rgba(251,191,36,.04);border-top:1px solid var(--bdr);display:flex;gap:8px;}
+.ens-col{flex:1;}
+.ens-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;}
+.ens-ans{font-size:10px;color:var(--t2);line-height:1.5;}
+.arb-box{padding:8px 14px;background:rgba(251,191,36,.06);border-top:1px solid rgba(251,191,36,.2);font-size:9px;color:var(--yellow);}
+/* Routing stats */
+.route-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex-shrink:0;}
+.route-stat{background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:10px;text-align:center;}
+.route-stat .rv{font-size:22px;font-weight:700;font-family:'JetBrains Mono';}
+.route-stat .rl{font-size:9px;color:var(--t3);margin-top:2px;}
+.route-hist-row{display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.03);font-size:10px;}
+.route-hist-row:hover{background:var(--card);}
+.rh-q{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2);}
+.rh-type{font-size:8px;padding:1px 6px;border-radius:100px;border:1px solid;white-space:nowrap;}
+.rh-win{font-size:10px;font-weight:700;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -227,6 +271,7 @@ tr:hover td{background:var(--card);}
   <span class="pill">Sujet 03 — RAG vs KAG</span>
   <div class="nav">
     <button class="navbtn on" onclick="nav('chat')" id="nb-chat">💬 Comparer</button>
+    <button class="navbtn"    onclick="nav('agent')" id="nb-agent">🤖 Agent</button>
     <button class="navbtn"    onclick="nav('graph')" id="nb-graph">🕸️ Graphe KAG</button>
     <button class="navbtn"    onclick="nav('results')" id="nb-results">📊 Résultats</button>
   </div>
@@ -429,6 +474,7 @@ tr:hover td{background:var(--card);}
         <button class="mbtn rag" id="mb-rag" onclick="setMode('rag')">🔵 RAG seul</button>
         <button class="mbtn kag" id="mb-kag" onclick="setMode('kag')">🔴 KAG seul</button>
         <button class="mbtn both on" id="mb-both" onclick="setMode('both')">⚡ Comparer</button>
+        <button class="mbtn" id="mb-auto" onclick="setMode('auto')" style="background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.4);color:var(--yellow);">🤖 Auto</button>
         <button class="mbtn" style="margin-left:auto;font-size:10px;color:var(--yellow);border-color:rgba(251,191,36,.3);" onclick="toggleGT()">✓ Ground Truth</button>
       </div>
       <div class="ibox">
@@ -474,6 +520,61 @@ tr:hover td{background:var(--card);}
         </div>
         <div id="triplet-rows" style="color:var(--t3);font-size:10px;padding:10px 12px;">
           Aucun triplet — construisez le graphe KAG
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── AGENT PANEL ─── -->
+  <div class="panel" id="panel-agent">
+    <div class="agent-wrap">
+
+      <!-- Stats bar -->
+      <div class="route-stat-grid" id="agent-stats-grid">
+        <div class="route-stat"><div class="rv" id="ag-total" style="color:var(--yellow)">0</div><div class="rl">Requêtes Agent</div></div>
+        <div class="route-stat"><div class="rv" id="ag-kag"   style="color:var(--red)">—</div><div class="rl">→ KAG</div></div>
+        <div class="route-stat"><div class="rv" id="ag-rag"   style="color:var(--blue)">—</div><div class="rl">→ RAG</div></div>
+      </div>
+
+      <!-- Question input -->
+      <div class="agent-input-zone">
+        <textarea class="agent-input" id="agent-q" rows="2"
+          placeholder="Posez votre question — l'agent décide automatiquement RAG, KAG ou Ensemble..."
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askSmart();}"></textarea>
+        <button class="agent-send" onclick="askSmart()" id="agent-btn">🤖 Auto</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;">
+        <span style="font-size:9px;color:var(--t3);">Ground truth (optionnel) :</span>
+        <input id="agent-gt" placeholder="réponse attendue" style="background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;padding:4px 9px;font-size:10px;color:var(--t1);outline:none;width:160px;">
+        <span style="font-size:9px;color:var(--t3);margin-left:auto;">← Essayez les questions démo de la sidebar</span>
+      </div>
+
+      <!-- Chat area -->
+      <div class="agent-chat" id="agent-chat">
+        <div style="text-align:center;color:var(--t3);font-size:11px;padding:30px 0;">
+          <div style="font-size:36px;margin-bottom:10px;">🤖</div>
+          <div style="font-weight:600;margin-bottom:5px;">Agent de routage intelligent</div>
+          <div style="max-width:320px;margin:0 auto;line-height:1.6;font-size:10px;">
+            Classifie votre question <b style="color:var(--yellow)">multi-sauts / relationnel / factuel / booléen</b>
+            puis route vers le meilleur pipeline.
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;font-size:9px;">
+            <span style="background:rgba(168,85,247,.1);color:#c084fc;border:1px solid rgba(168,85,247,.3);padding:2px 8px;border-radius:100px;">multi_hop → KAG</span>
+            <span style="background:rgba(227,6,19,.1);color:var(--red);border:1px solid rgba(227,6,19,.3);padding:2px 8px;border-radius:100px;">relational → KAG</span>
+            <span style="background:rgba(56,189,248,.1);color:var(--blue);border:1px solid rgba(56,189,248,.3);padding:2px 8px;border-radius:100px;">factual → RAG</span>
+            <span style="background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.3);padding:2px 8px;border-radius:100px;">boolean → Ensemble</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Routing history -->
+      <div class="triplet-list" id="routing-hist" style="max-height:140px;">
+        <div style="padding:6px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);border-bottom:1px solid var(--bdr);">
+          Historique des décisions
+        </div>
+        <div id="routing-hist-rows" style="color:var(--t3);font-size:10px;padding:8px 12px;">
+          Aucune décision — posez une question
         </div>
       </div>
 
@@ -528,6 +629,7 @@ function nav(name){
   document.getElementById('nb-'+name).classList.add('on');
   if(name==='results') refreshResults();
   if(name==='graph')   refreshGraph();
+  if(name==='agent')   refreshRouting();
 }
 
 // ── KAG Graph Visualization ──────────────────────────────────────────────────
@@ -719,10 +821,12 @@ function drawGraph(data){
 // ── Mode selector ─────────────────────────────────────────────────────────────
 function setMode(m){
   mode = m;
-  ['rag','kag','both'].forEach(x=>{
+  ['rag','kag','both','auto'].forEach(x=>{
     const b = document.getElementById('mb-'+x);
     if(b) b.classList.toggle('on', x===m);
   });
+  // Si mode Auto : basculer vers l'onglet Agent pour mieux voir
+  if(m==='auto') nav('agent');
 }
 
 // ── Ground truth toggle ───────────────────────────────────────────────────────
@@ -737,11 +841,127 @@ function useDemo(el){
   const gt = el.dataset.gt||'';
   document.getElementById('q').value  = q;
   document.getElementById('gt').value = gt;
+  // Remplir aussi le champ agent
+  const aq = document.getElementById('agent-q');
+  const ag = document.getElementById('agent-gt');
+  if(aq) aq.value = q;
+  if(ag) ag.value = gt;
   if(gt && !showGT){ toggleGT(); }
   ar(document.getElementById('q'));
   document.getElementById('q').focus();
-  // Force mode "both" pour voir la comparaison
   setMode('both');
+}
+
+// ── Smart Agent ───────────────────────────────────────────────────────────────
+const PIPE_ICON = {rag:'🔵', kag:'🔴', ensemble:'⚡', none:'❌'};
+const TYPE_COLOR = {multi_hop:'#c084fc', relational:'var(--red)', factual:'var(--blue)', boolean:'var(--green)'};
+
+async function askSmart(){
+  const q  = document.getElementById('agent-q').value.trim();
+  const gt = document.getElementById('agent-gt').value.trim();
+  if(!q) return;
+  const btn = document.getElementById('agent-btn');
+  btn.disabled=true; btn.textContent='⏳...';
+
+  // Typing indicator
+  const chat = document.getElementById('agent-chat');
+  const typing = document.createElement('div');
+  typing.style.cssText='padding:12px;color:var(--t3);font-size:11px;text-align:center;';
+  typing.textContent='🤖 Analyse de la question...';
+  chat.appendChild(typing); chat.scrollTop=chat.scrollHeight;
+
+  try{
+    const r = await fetch('/smart',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({question:q, ground_truth:gt})
+    });
+    const d = await r.json();
+    typing.remove();
+    addAgentCard(d, chat);
+    await refreshRouting();
+  }catch(e){
+    typing.textContent='❌ Erreur: '+e.message;
+  }
+  btn.disabled=false; btn.textContent='🤖 Auto';
+}
+
+function addAgentCard(d, chat){
+  const el = document.createElement('div');
+  el.className='route-card';
+  const rt = d.routing||{};
+  const pipe = d.pipeline_used||'?';
+  const winner = d.winner||pipe;
+  const conf = Math.round((rt.confidence||0)*100);
+  const isEnsemble = pipe==='ensemble';
+
+  const emHtml = d.em!=null
+    ? `<span style="font-size:10px;margin-left:auto;">
+         EM <b style="color:${d.em>=1?'var(--green)':'var(--red)'}">${(d.em*100).toFixed(0)}%</b>
+         &nbsp; F1 <b>${((d.f1||0)*100).toFixed(0)}%</b>
+       </span>` : '';
+
+  const ensHtml = isEnsemble ? `
+    <div class="route-ensemble">
+      <div class="ens-col">
+        <div class="ens-lbl" style="color:var(--blue);">🔵 RAG dit :</div>
+        <div class="ens-ans">${esc(d.rag_answer||'—')}</div>
+      </div>
+      <div style="width:1px;background:var(--bdr);flex-shrink:0;"></div>
+      <div class="ens-col">
+        <div class="ens-lbl" style="color:var(--red);">🔴 KAG dit :</div>
+        <div class="ens-ans">${esc(d.kag_answer||'—')}</div>
+      </div>
+    </div>
+    <div class="arb-box">🤖 Agent arbitre → <b>${winner.toUpperCase()}</b> : ${esc(d.arb_reason||'')}</div>` : '';
+
+  el.innerHTML=`
+    <div class="route-header">
+      <span style="font-size:11px;font-weight:600;">💬 ${esc(d.question)}</span>
+      <span class="q-type-badge ${rt.type||'factual'}">${(rt.type||'?').replace('_',' ')}</span>
+      ${emHtml}
+    </div>
+    <div class="route-decision">
+      <div class="route-icon">${PIPE_ICON[pipe]||'?'}</div>
+      <div style="flex:1;">
+        <div class="route-pipeline">Route → <span style="color:${pipe==='rag'?'var(--blue)':pipe==='kag'?'var(--red)':'var(--yellow)'}">${pipe.toUpperCase()}</span></div>
+        <div class="route-reason">${esc(rt.reason||'')}</div>
+        <div class="conf-bar"><div class="conf-fill" style="width:${conf}%"></div></div>
+        <div style="font-size:8px;color:var(--t3);margin-top:2px;">Confiance ${conf}%</div>
+      </div>
+    </div>
+    <div class="route-answer">
+      <div class="winner-badge ${winner}">${PIPE_ICON[winner]} ${winner.toUpperCase()}</div>
+      <div class="agent-answer-text">${esc(d.answer||'—')}</div>
+      <div style="font-size:9px;color:var(--t3);margin-top:5px;">${d.latency_ms||0} ms</div>
+    </div>
+    ${ensHtml}`;
+
+  chat.appendChild(el);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+async function refreshRouting(){
+  try{
+    const d = await (await fetch('/routing/stats')).json();
+    const total = d.total||0;
+    document.getElementById('ag-total').textContent = total||0;
+    document.getElementById('ag-kag').textContent = d.distribution?.kag||0;
+    document.getElementById('ag-rag').textContent = d.distribution?.rag||0;
+    const hr = document.getElementById('routing-hist-rows');
+    const hist = (d.history||[]).slice().reverse();
+    if(hist.length){
+      hr.innerHTML = hist.map(r=>{
+        const col = {rag:'var(--blue)',kag:'var(--red)',ensemble:'var(--yellow)'}[r.routed_to]||'var(--t3)';
+        return `<div class="route-hist-row">
+          <span class="rh-q">${esc(r.question)}</span>
+          <span class="rh-type ${r.type}" style="color:${TYPE_COLOR[r.type]||'var(--t3)'};border-color:${TYPE_COLOR[r.type]||'var(--t3)'}">${r.type.replace('_',' ')}</span>
+          <span class="rh-win" style="color:${col}">${(r.winner||r.routed_to).toUpperCase()}</span>
+          ${r.em!=null?`<span style="font-size:9px;color:${r.em>=1?'var(--green)':'var(--red)'}">${(r.em*100).toFixed(0)}%</span>`:''}
+        </div>`;
+      }).join('');
+    }
+  }catch(e){}
 }
 
 // ── Load HotpotQA ─────────────────────────────────────────────────────────────
