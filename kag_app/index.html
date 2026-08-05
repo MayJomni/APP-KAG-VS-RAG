@@ -693,7 +693,7 @@ tr:hover td{background:var(--card);}
                     </div>
                   </td>
                   <td style="padding:10px 8px;text-align:center;">
-                    <div style="font-size:14px;font-weight:700;color:#38bdf8;" id="r-rl">—</div>
+                    <div style="font-size:14px;font-weight:700;color:#38bdf8;" id="mat-rl">—</div>
                     <div style="font-size:8px;color:var(--t3);">ms moy.</div>
                   </td>
                   <td style="padding:10px 8px;text-align:center;">
@@ -719,7 +719,7 @@ tr:hover td{background:var(--card);}
                     </div>
                   </td>
                   <td style="padding:10px 8px;text-align:center;">
-                    <div style="font-size:14px;font-weight:700;color:#e31313;" id="r-kl">—</div>
+                    <div style="font-size:14px;font-weight:700;color:#e31313;" id="mat-kl">—</div>
                     <div style="font-size:8px;color:var(--t3);">ms moy.</div>
                   </td>
                   <td style="padding:10px 8px;text-align:center;">
@@ -1484,11 +1484,16 @@ async function refreshResults(){
     setText('r-docs', s.rag?.doc_count ?? '—');
   } catch(e) { setText('r-docs','—'); }
 
-  // ⑤ Latency — maintenant dans la matrice de précision (r-rl / r-kl)
+  // ⑤ Latency — KPI cards + matrice de précision + barres comparaison
   const rl = d.avg_latency_rag || 0;
   const kl = d.avg_latency_kag || 0;
+  // KPI cards (en haut)
   setText('r-rl', rl ? rl+'ms' : '—');
   setText('r-kl', kl ? kl+'ms' : '—');
+  // Cellules latence dans la matrice de précision (IDs uniques)
+  setText('mat-rl', rl ? rl+'ms' : '—');
+  setText('mat-kl', kl ? kl+'ms' : '—');
+  // Barres comparaison latences
   const mx = Math.max(rl, kl, 1);
   setWidth('br-rag', ((rl/mx)*100).toFixed(1));
   setWidth('br-kag', ((kl/mx)*100).toFixed(1));
