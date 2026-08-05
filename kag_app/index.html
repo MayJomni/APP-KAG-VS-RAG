@@ -655,48 +655,90 @@ tr:hover td{background:var(--card);}
 
         <!-- EM / F1 bar chart -->
         <div class="sbox">
-          <div class="sbox-hd">🎯 Précision : Exact Match &amp; F1</div>
-          <div class="sbox-bd" style="padding-top:8px;">
-            <div style="font-size:9px;color:var(--t3);margin-bottom:8px;">Basé sur les requêtes avec Ground Truth fournie</div>
+          <div class="sbox-hd">🎯 Matrice de Précision — RAG vs KAG</div>
+          <div class="sbox-bd" style="padding-top:6px;">
+            <div style="font-size:9px;color:var(--t3);margin-bottom:10px;">
+              Métriques calculées sur les requêtes avec Ground Truth fournie &nbsp;·&nbsp;
+              <span id="em-count-label" style="color:var(--yellow);">Aucune comparaison GT pour l'instant</span>
+            </div>
 
-            <div style="margin-bottom:6px;">
-              <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px;">
-                <span style="color:var(--blue);font-weight:600;">🔵 RAG — Exact Match</span>
-                <span id="v-rag-em" style="color:var(--blue);font-weight:700;">—</span>
-              </div>
-              <div style="background:var(--card);border-radius:4px;height:8px;overflow:hidden;">
-                <div id="b-rag-em" style="height:100%;background:var(--blue);border-radius:4px;width:0%;transition:width 1s ease;"></div>
-              </div>
-            </div>
-            <div style="margin-bottom:6px;">
-              <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px;">
-                <span style="color:var(--red);font-weight:600;">🔴 KAG — Exact Match</span>
-                <span id="v-kag-em" style="color:var(--red);font-weight:700;">—</span>
-              </div>
-              <div style="background:var(--card);border-radius:4px;height:8px;overflow:hidden;">
-                <div id="b-kag-em" style="height:100%;background:var(--red);border-radius:4px;width:0%;transition:width 1s ease;"></div>
-              </div>
-            </div>
-            <div style="margin-bottom:6px;">
-              <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px;">
-                <span style="color:var(--blue);font-weight:600;">🔵 RAG — Token F1</span>
-                <span id="v-rag-f1" style="color:var(--blue);font-weight:700;">—</span>
-              </div>
-              <div style="background:var(--card);border-radius:4px;height:8px;overflow:hidden;">
-                <div id="b-rag-f1" style="height:100%;background:linear-gradient(90deg,var(--blue),#22c55e);border-radius:4px;width:0%;transition:width 1s ease;"></div>
-              </div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px;">
-                <span style="color:var(--red);font-weight:600;">🔴 KAG — Token F1</span>
-                <span id="v-kag-f1" style="color:var(--red);font-weight:700;">—</span>
-              </div>
-              <div style="background:var(--card);border-radius:4px;height:8px;overflow:hidden;">
-                <div id="b-kag-f1" style="height:100%;background:linear-gradient(90deg,var(--red),#f97316);border-radius:4px;width:0%;transition:width 1s ease;"></div>
-              </div>
-            </div>
-            <div id="em-note" style="font-size:8px;color:var(--t3);margin-top:8px;">
-              💡 Posez des questions avec Ground Truth dans l'onglet Comparer pour alimenter ces métriques.
+            <!-- Matrix table -->
+            <table style="width:100%;border-collapse:collapse;font-size:10px;">
+              <thead>
+                <tr>
+                  <th style="padding:6px 8px;text-align:left;color:var(--t3);font-weight:600;border-bottom:1px solid var(--bdr);width:22%;">Pipeline</th>
+                  <th style="padding:6px 8px;text-align:center;color:var(--t2);font-weight:600;border-bottom:1px solid var(--bdr);">🎯 Exact Match</th>
+                  <th style="padding:6px 8px;text-align:center;color:var(--t2);font-weight:600;border-bottom:1px solid var(--bdr);">📐 Token F1</th>
+                  <th style="padding:6px 8px;text-align:center;color:var(--t2);font-weight:600;border-bottom:1px solid var(--bdr);">⏱️ Latence</th>
+                  <th style="padding:6px 8px;text-align:center;color:var(--t2);font-weight:600;border-bottom:1px solid var(--bdr);">🏆 Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- RAG row -->
+                <tr style="background:rgba(56,189,248,0.05);border-bottom:1px solid var(--bdr);">
+                  <td style="padding:10px 8px;">
+                    <div style="font-weight:700;color:#38bdf8;font-size:11px;">🔵 RAG</div>
+                    <div style="font-size:8px;color:var(--t3);">BM25 · Texte</div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div style="font-size:14px;font-weight:700;color:#38bdf8;" id="v-rag-em">—</div>
+                    <div style="background:rgba(56,189,248,.15);border-radius:4px;height:5px;margin-top:5px;overflow:hidden;">
+                      <div id="b-rag-em" style="height:100%;background:#38bdf8;border-radius:4px;width:0%;transition:width 1.2s ease;"></div>
+                    </div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div style="font-size:14px;font-weight:700;color:#38bdf8;" id="v-rag-f1">—</div>
+                    <div style="background:rgba(56,189,248,.15);border-radius:4px;height:5px;margin-top:5px;overflow:hidden;">
+                      <div id="b-rag-f1" style="height:100%;background:linear-gradient(90deg,#38bdf8,#22c55e);border-radius:4px;width:0%;transition:width 1.2s ease;"></div>
+                    </div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div style="font-size:14px;font-weight:700;color:#38bdf8;" id="r-rl">—</div>
+                    <div style="font-size:8px;color:var(--t3);">ms moy.</div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div id="rag-score-cell" style="font-size:11px;font-weight:700;color:var(--t3);">—</div>
+                  </td>
+                </tr>
+                <!-- KAG row -->
+                <tr style="background:rgba(227,19,19,0.05);border-bottom:1px solid var(--bdr);">
+                  <td style="padding:10px 8px;">
+                    <div style="font-weight:700;color:#e31313;font-size:11px;">🔴 KAG</div>
+                    <div style="font-size:8px;color:var(--t3);">Graphe · Triplets</div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div style="font-size:14px;font-weight:700;color:#e31313;" id="v-kag-em">—</div>
+                    <div style="background:rgba(227,19,19,.15);border-radius:4px;height:5px;margin-top:5px;overflow:hidden;">
+                      <div id="b-kag-em" style="height:100%;background:#e31313;border-radius:4px;width:0%;transition:width 1.2s ease;"></div>
+                    </div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div style="font-size:14px;font-weight:700;color:#e31313;" id="v-kag-f1">—</div>
+                    <div style="background:rgba(227,19,19,.15);border-radius:4px;height:5px;margin-top:5px;overflow:hidden;">
+                      <div id="b-kag-f1" style="height:100%;background:linear-gradient(90deg,#e31313,#f97316);border-radius:4px;width:0%;transition:width 1.2s ease;"></div>
+                    </div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div style="font-size:14px;font-weight:700;color:#e31313;" id="r-kl">—</div>
+                    <div style="font-size:8px;color:var(--t3);">ms moy.</div>
+                  </td>
+                  <td style="padding:10px 8px;text-align:center;">
+                    <div id="kag-score-cell" style="font-size:11px;font-weight:700;color:var(--t3);">—</div>
+                  </td>
+                </tr>
+                <!-- Winner row -->
+                <tr style="background:rgba(251,191,36,.04);">
+                  <td style="padding:8px;font-size:9px;color:var(--t3);font-weight:600;">🏆 Vainqueur</td>
+                  <td style="text-align:center;padding:8px;" id="winner-em"><span style="color:var(--t3);font-size:9px;">—</span></td>
+                  <td style="text-align:center;padding:8px;" id="winner-f1"><span style="color:var(--t3);font-size:9px;">—</span></td>
+                  <td style="text-align:center;padding:8px;" id="winner-lat"><span style="color:var(--t3);font-size:9px;">—</span></td>
+                  <td style="text-align:center;padding:8px;" id="r-winner"><span style="color:var(--t3);font-size:9px;">—</span></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div id="em-note" style="font-size:8px;color:var(--t3);margin-top:8px;padding:6px 8px;background:rgba(251,191,36,.06);border-radius:6px;border-left:2px solid #fbbf24;">
+              💡 Pour calculer EM et F1 : onglet <b>💬 Comparer</b> → cochez <b>✓ Ground Truth</b> → entrez la réponse attendue → cliquez <b>⚡ Comparer</b>
             </div>
           </div>
         </div>
@@ -1442,18 +1484,18 @@ async function refreshResults(){
     setText('r-docs', s.rag?.doc_count ?? '—');
   } catch(e) { setText('r-docs','—'); }
 
-  // ⑤ Latency
+  // ⑤ Latency — maintenant dans la matrice de précision (r-rl / r-kl)
   const rl = d.avg_latency_rag || 0;
   const kl = d.avg_latency_kag || 0;
-  if(rl) setText('r-rl', rl+'ms');
-  if(kl) setText('r-kl', kl+'ms');
+  setText('r-rl', rl ? rl+'ms' : '—');
+  setText('r-kl', kl ? kl+'ms' : '—');
   const mx = Math.max(rl, kl, 1);
   setWidth('br-rag', ((rl/mx)*100).toFixed(1));
   setWidth('br-kag', ((kl/mx)*100).toFixed(1));
   setText('bv-rag', rl ? rl+'ms' : '—');
   setText('bv-kag', kl ? kl+'ms' : '—');
 
-  // ⑥ EM / F1 bars
+  // ⑥ EM / F1 — barres de la matrice de précision
   const rEM = d.avg_rag_em ?? null;
   const kEM = d.avg_kag_em ?? null;
   const rF1 = d.avg_rag_f1 ?? null;
@@ -1468,26 +1510,59 @@ async function refreshResults(){
   setWidth('b-kag-f1', kF1!=null ? (kF1*100).toFixed(1) : 0);
   setText('v-kag-f1', pct(kF1));
 
+  // Helper badge vainqueur par colonne
+  const wBadge = (a, b, idEl, lblRag, lblKag) => {
+    const el = document.getElementById(idEl);
+    if(!el) return null;
+    if(a==null && b==null){ el.innerHTML='<span style="color:var(--t3);font-size:9px;">—</span>'; return null; }
+    if(a!=null && b!=null){
+      if(a > b){ el.innerHTML=`<span style="color:#38bdf8;font-weight:700;font-size:10px;">${lblRag}</span>`; return 'rag'; }
+      if(b > a){ el.innerHTML=`<span style="color:#e31313;font-weight:700;font-size:10px;">${lblKag}</span>`; return 'kag'; }
+      el.innerHTML='<span style="color:#fbbf24;font-size:9px;">⚡ Ex æquo</span>'; return 'tie';
+    }
+    el.innerHTML='<span style="color:var(--t3);font-size:9px;">—</span>'; return null;
+  };
+
+  const winEM  = wBadge(rEM, kEM, 'winner-em',  '🔵 RAG', '🔴 KAG');
+  const winF1  = wBadge(rF1, kF1, 'winner-f1',  '🔵 RAG', '🔴 KAG');
+  const winLat = wBadge(kl>0&&rl>0?-rl:null, kl>0&&rl>0?-kl:null, 'winner-lat', '🔵 RAG', '🔴 KAG');
+  // Note: pour la latence, moins = mieux, donc on inverse
+
+  // Tally : compter les colonnes gagnées
+  const tally = {rag:0, kag:0, tie:0};
+  [winEM, winF1, winLat].forEach(w => { if(w && tally[w]!==undefined) tally[w]++; });
+
+  const scoreCell = (score, color, id) => {
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = `<span style="font-size:16px;font-weight:800;color:${color};">${score}</span><span style="font-size:8px;color:var(--t3);">/3</span>`;
+  };
+  scoreCell(tally.rag, '#38bdf8', 'rag-score-cell');
+  scoreCell(tally.kag, '#e31313', 'kag-score-cell');
+
+  // Vainqueur global (cellule en bas à droite)
+  const winEl = document.getElementById('r-winner');
+  if(winEl){
+    if(tally.rag > tally.kag)      winEl.innerHTML='<span style="color:#38bdf8;font-weight:800;">🔵 RAG</span>';
+    else if(tally.kag > tally.rag) winEl.innerHTML='<span style="color:#e31313;font-weight:800;">🔴 KAG</span>';
+    else if(rEM!=null||rF1!=null)  winEl.innerHTML='<span style="color:#fbbf24;font-weight:700;">⚡ Égalité</span>';
+    else                           winEl.innerHTML='<span style="color:var(--t3);font-size:9px;">—</span>';
+  }
+
+  // GT count label
+  const gtRuns = (d.history||[]).filter(r=>r.rag_em!=null).length;
+  setText('em-count-label', gtRuns>0 ? `${gtRuns} requête${gtRuns>1?'s':''} avec Ground Truth` : 'Aucune comparaison GT pour l\'instant');
   if(rEM!=null || kEM!=null){
     const noteEl = document.getElementById('em-note');
     if(noteEl) noteEl.style.display='none';
   }
 
-  // ⑦ Winner KPI
-  const winEl = document.getElementById('r-winner');
-  if(winEl && rEM!=null && kEM!=null){
-    if(rEM > kEM){ winEl.textContent='🔵 RAG'; winEl.style.color='#38bdf8'; }
-    else if(kEM > rEM){ winEl.textContent='🔴 KAG'; winEl.style.color='#e31313'; }
-    else { winEl.textContent='⚡ Ex æquo'; winEl.style.color='#fbbf24'; }
-  }
-
-  // ⑧ Latency sparkline canvas
+  // ⑦ Latency sparkline canvas
   try { drawLatencySparkline(d.history || []); } catch(e){}
 
-  // ⑨ Rebuild matrix with real data
+  // ⑧ Rebuild decision matrix with real data
   buildMatrix(rl, kl, rEM, kEM, rF1, kF1);
 
-  // ⑩ History table
+  // ⑨ History table
   const tbody = document.getElementById('hist-body');
   if(!tbody) return;
   const hist = d.history || [];
