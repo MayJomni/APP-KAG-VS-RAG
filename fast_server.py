@@ -449,13 +449,7 @@ async def mlops_stats():
     rag_lats = [r["latency_ms"] for r in rag_runs]
     kag_lats = [r["latency_ms"] for r in kag_runs]
 
-    # EM / F1 accumulés depuis compare et smart
-    rag_ems = [r["em"] for r in run_log if r.get("rag_em") is not None]
-    kag_ems = [r["em"] for r in run_log if r.get("kag_em") is not None]
-    rag_f1s = [r["f1"] for r in run_log if r.get("rag_f1") is not None]
-    kag_f1s = [r["f1"] for r in run_log if r.get("kag_f1") is not None]
-
-    # Stats depuis routing_log (plus complet)
+    # Stats depuis routing_log
     routing_ems_rag = [r["em"] for r in routing_log
                        if r.get("winner")=="rag" and r.get("em") is not None]
     routing_ems_kag = [r["em"] for r in routing_log
