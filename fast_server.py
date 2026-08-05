@@ -65,53 +65,115 @@ routing_log  = []   # {question, type, routed_to, reason, confidence}
 
 # ── Routing Agent ──────────────────────────────────────────────────────────────
 # Signaux linguistiques pour la classification de questions
-MULTIHOP_SIGNALS  = {"same nationality","both","also","were they","did they","same country",
-                     "same city","same field","same genre","who is also","who was also"}
-RELATIONAL_SIGNALS= {"father of","mother of","son of","daughter of","founded by","created by",
-                     "directed by","produced by","who played","who portrayed","who held",
-                     "what position","what role","what government","relationship between"}
-FACTUAL_SIGNALS   = {"what year","when was","when did","how many","how much","what is the name",
-                     "what was the name","in what year","what date","how old","what number"}
-BOOLEAN_SIGNALS   = {"were","was","is","are","did","does","have","has","can","could","would"}
+
+# MULTI-HOP : nécessite de relier plusieurs faits dans le graphe
+MULTIHOP_SIGNALS  = {"same nationality", "also", "were they", "did they",
+                     "same country", "same city", "same field", "same genre",
+                     "who is also", "who was also", "as well as",
+                     "in addition to", "both born", "both studied",
+                     "both worked", "how many of them", "which of them"}
+
+# RELATIONNEL : cherche une relation directe entre deux entités
+RELATIONAL_SIGNALS= {"father of", "mother of", "son of", "daughter of",
+                     "founded by", "created by", "directed by", "produced by",
+                     "who played", "who portrayed", "who held",
+                     "what position", "what role", "what government",
+                     "relationship between", "married to", "worked with",
+                     "collaborated with", "trained by", "coached by"}
+
+# FACTUEL : cherche une valeur précise (date, nombre, nom)
+FACTUAL_SIGNALS   = {"what year", "when was", "when did", "how many",
+                     "how much", "what is the name", "what was the name",
+                     "in what year", "what date", "how old", "what number",
+                     "which year", "what age", "how long", "what time"}
+
+# BOOLÉEN : question oui/non — détectée par le 1er mot
+BOOLEAN_STARTERS  = {"were", "was", "is", "are", "did", "does",
+                     "have", "has", "can", "could", "would", "do",
+                     "will", "shall", "might", "should"}
+
 
 def classify_question(question: str) -> dict:
     """Classifie la question et retourne les scores pour chaque type (radar chart)."""
-    q = question.lower().strip()
+    q     = question.lower().strip()
+    words = q.split()
+    first = words[0] if words else ""
 
-    # Scores continus (0–1) pour chaque dimension
     mh_hits = sum(1 for sig in MULTIHOP_SIGNALS  if sig in q)
     re_hits = sum(1 for sig in RELATIONAL_SIGNALS if sig in q)
     fa_hits = sum(1 for sig in FACTUAL_SIGNALS    if sig in q)
-    bo_hit  = 1 if (q.split() and q.split()[0] in BOOLEAN_SIGNALS) else 0
+    bo_hit  = 1 if first in BOOLEAN_STARTERS else 0
+
+    # Question booléenne simple : commence par was/were/did ET courte (≤ 14 mots)
+    # ET pas de signaux relationnels complexes → RAG direct
+    is_simple_boolean = (bo_hit and len(words) <= 14
+                         and re_hits == 0 and mh_hits == 0)
+
+    # Question booléenne complexe : commence par boolean ET contient "both" ou "and"
+    # avec plusieurs entités → multi-hop potentiel
+    has_both    = "both" in q
+    has_and_two = q.count(" and ") >= 1
 
     type_scores = {
         "multi_hop":  min(100, mh_hits * 45 + (15 if mh_hits else 0)),
         "relational": min(100, re_hits * 40 + (10 if re_hits else 0)),
         "factual":    min(100, fa_hits * 45 + (10 if fa_hits else 0)),
-        "boolean":    bo_hit * 70,
+        "boolean":    bo_hit * 70 + (20 if is_simple_boolean else 0),
     }
+    # Boost multi-hop si "both" + "and" dans une question booléenne
+    if bo_hit and has_both and has_and_two:
+        type_scores["multi_hop"] = max(type_scores["multi_hop"], 55)
 
-    # Ajouter un bruit de base pour que le radar soit lisible
+    # Bruit minimal pour radar lisible
     for k in type_scores:
         if type_scores[k] == 0:
-            type_scores[k] = 5   # bruit minimal visible
+            type_scores[k] = 5
 
-    # Trouver le type dominant
-    if mh_hits:
-        q_type, confidence, reason = "multi_hop",  0.90, "Compare deux entités ou chaîne plusieurs faits"
+    # ── Priorité de classification ──────────────────────────────────────────────
+    # 1. Booléen SIMPLE → priorité maximale (RAG direct)
+    if is_simple_boolean:
+        q_type    = "boolean"
+        confidence = 0.85
+        reason    = "Question oui/non simple → RAG suffisant (un seul passage de texte)"
+
+    # 2. Multi-hop fort (≥2 signaux ou signal fort + booléen complexe)
+    elif mh_hits >= 2 or (mh_hits >= 1 and fa_hits == 0 and re_hits == 0):
+        q_type    = "multi_hop"
+        confidence = 0.90
+        reason    = "Multi-sauts détectés → KAG nécessaire (raisonnement sur le graphe)"
+
+    # 3. Booléen COMPLEXE (both + and + entités multiples)
+    elif bo_hit and has_both and has_and_two:
+        q_type    = "multi_hop"
+        confidence = 0.82
+        reason    = "Question oui/non sur deux entités → KAG pour comparer dans le graphe"
+
+    # 4. Relationnel
     elif re_hits:
-        q_type, confidence, reason = "relational", 0.88, "Cherche une relation entre entités"
+        q_type    = "relational"
+        confidence = 0.88
+        reason    = "Relation entre entités → KAG (triplets du graphe)"
+
+    # 5. Factuel
     elif fa_hits:
-        q_type, confidence, reason = "factual",    0.85, "Cherche un fait direct (date, nom, nombre)"
+        q_type    = "factual"
+        confidence = 0.85
+        reason    = "Fait direct recherché → RAG (passages textuels)"
+
+    # 6. Booléen standard (premier mot = booléen mais non classé simple)
     elif bo_hit:
-        q_type, confidence, reason = "boolean",    0.80, "Question oui/non sur une propriété"
+        q_type    = "boolean"
+        confidence = 0.78
+        reason    = "Question oui/non → Ensemble pour arbitrage RAG + KAG"
+
     else:
         # Fallback LLM léger
         sys_p = ("Classify this question in ONE word: multi_hop | relational | factual | boolean. "
                  "Just the word, no explanation.")
-        res = llm(sys_p, question, max_tokens=5).strip().lower()
+        res   = llm(sys_p, question, max_tokens=5).strip().lower()
         q_type    = res if res in ("multi_hop","relational","factual","boolean") else "factual"
-        confidence, reason = 0.70, "Classifié par LLM"
+        confidence = 0.70
+        reason    = "Classifié par LLM (aucun signal lexical détecté)"
         type_scores[q_type] = max(type_scores[q_type], 60)
 
     return {"type": q_type, "confidence": confidence,
@@ -124,34 +186,45 @@ def route_question(question: str) -> dict:
     rag_ready = rag_index is not None and len(documents) > 0
     clf       = classify_question(question)
     q_type    = clf["type"]
+    words     = question.lower().split()
+    first     = words[0] if words else ""
+    is_simple_bool = (first in BOOLEAN_STARTERS
+                      and len(words) <= 14
+                      and q_type == "boolean")
 
-    # Règles de routage
+    # Pipelines indisponibles
     if not kag_ready and not rag_ready:
         return {**clf, "pipeline": "none",
                 "reason": "Aucun pipeline disponible — chargez des données d'abord"}
-
     if not kag_ready:
         return {**clf, "pipeline": "rag",
-                "reason": f"KAG non disponible (graphe vide). RAG utilisé pour question {q_type}"}
-
+                "reason": f"KAG non disponible. RAG utilisé (question: {q_type})"}
     if not rag_ready:
         return {**clf, "pipeline": "kag",
-                "reason": f"RAG non disponible. KAG utilisé pour question {q_type}"}
+                "reason": f"RAG non disponible. KAG utilisé (question: {q_type})"}
 
-    # Les deux sont disponibles — appliquer la stratégie de routage
+    # ── Stratégie de routage ────────────────────────────────────────────────────
     if q_type == "multi_hop":
         return {**clf, "pipeline": "kag",
-                "reason": "KAG privilégié : question multi-sauts → raisonnement sur le graphe"}
+                "reason": "KAG ✓ : question multi-sauts → raisonnement sur le graphe de triplets"}
+
     if q_type == "relational":
         return {**clf, "pipeline": "kag",
-                "reason": "KAG privilégié : question relationnelle → triplets du graphe"}
+                "reason": "KAG ✓ : relation entre entités → parcours des arêtes du graphe"}
+
     if q_type == "factual":
         return {**clf, "pipeline": "rag",
-                "reason": "RAG privilégié : question factuelle directe → passages textuels"}
+                "reason": "RAG ✓ : fait direct → passages BM25 pertinents"}
+
     if q_type == "boolean":
-        # Booléen : les deux sont bons, ensemble
-        return {**clf, "pipeline": "ensemble",
-                "reason": "Ensemble : question booléenne → RAG + KAG + agent arbitre"}
+        if is_simple_bool:
+            # Oui/non simple → RAG suffit (réponse dans un seul passage)
+            return {**clf, "pipeline": "rag",
+                    "reason": "RAG ✓ : oui/non simple → un passage suffit (pas besoin du graphe)"}
+        else:
+            # Oui/non complexe → Ensemble pour arbitrage
+            return {**clf, "pipeline": "ensemble",
+                    "reason": "Ensemble ✓ : oui/non complexe → RAG + KAG + agent arbitre"}
 
     return {**clf, "pipeline": "ensemble",
             "reason": "Incertain → Ensemble RAG + KAG pour plus de robustesse"}
