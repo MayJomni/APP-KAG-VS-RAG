@@ -1365,98 +1365,146 @@ function toggleCtx(id){
 }
 
 // ── Results panel ─────────────────────────────────────────────────────────────
+// Helper: set element text, silently if element doesn't exist
+function setText(id, val){ const el=document.getElementById(id); if(el) el.textContent=val; }
+function setWidth(id, pctNum){ const el=document.getElementById(id); if(el) el.style.width=pctNum+'%'; }
+function setColor(id, col){ const el=document.getElementById(id); if(el) el.style.color=col; }
+function pct(v){ return v!=null ? (v*100).toFixed(1)+'%' : '—'; }
+
+function buildMatrix(rl, kl, rEM, kEM, rF1, kF1){
+  const mb = document.getElementById('matrix-body');
+  if(!mb) return;
+  const wbadge = w => ({
+    rag: `<span style="color:#38bdf8;font-weight:700;">🔵 RAG</span>`,
+    kag: `<span style="color:#e31313;font-weight:700;">🔴 KAG</span>`,
+    tie: `<span style="color:#fbbf24;">⚡ Ex æquo</span>`,
+  }[w] || `<span style="color:var(--t3);">—</span>`);
+
+  const rows = [
+    { name:'⏱️ Latence moy.',
+      rv: rl>0?rl+'ms':'—', kv: kl>0?kl+'ms':'—',
+      winner: (rl>0&&kl>0) ? (rl<kl?'rag':kl<rl?'kag':'tie') : null,
+      detail: (rl>0&&kl>0) ? `RAG ${rl}ms · KAG ${kl}ms` : 'Pas encore de requêtes' },
+    { name:'🎯 Exact Match',
+      rv: pct(rEM), kv: pct(kEM),
+      winner: (rEM!=null&&kEM!=null) ? (rEM>kEM?'rag':kEM>rEM?'kag':'tie') : null,
+      detail: (rEM!=null) ? `RAG ${pct(rEM)} · KAG ${pct(kEM)}` : 'Fournissez des Ground Truths dans Comparer' },
+    { name:'📐 Token F1',
+      rv: pct(rF1), kv: pct(kF1),
+      winner: (rF1!=null&&kF1!=null) ? (rF1>kF1?'rag':kF1>rF1?'kag':'tie') : null,
+      detail: (rF1!=null) ? `RAG ${pct(rF1)} · KAG ${pct(kF1)}` : 'Fournissez des Ground Truths dans Comparer' },
+    { name:'🧠 Raisonnement multi-sauts',
+      rv:'Faible ❌', kv:'Fort ✅', winner:'kag',
+      detail:'KAG traverse le graphe de triplets pour chaîner les faits' },
+    { name:'🔗 Relations entre entités',
+      rv:'Moyen ⚠️', kv:'Fort ✅', winner:'kag',
+      detail:'KAG parcourt les arêtes du graphe pour relier les entités' },
+    { name:'📄 Questions factuelles',
+      rv:'Fort ✅', kv:'Moyen ⚠️', winner:'rag',
+      detail:'RAG retrouve directement les passages textuels les plus pertinents' },
+    { name:'⚡ Vitesse de chargement',
+      rv:'Rapide (BM25)', kv:'Instantané (RAM)', winner:'kag',
+      detail:'KAG stocke le graphe en mémoire — pas de calcul de similarité' },
+    { name:'📚 Passage long texte',
+      rv:'Fort ✅', kv:'Faible ❌', winner:'rag',
+      detail:'RAG gère mieux les documents longs avec fenêtres de passage' },
+  ];
+
+  mb.innerHTML = rows.map(r=>`
+    <tr style="border-bottom:1px solid var(--bdr);">
+      <td style="padding:7px 8px;font-weight:600;color:var(--t1);">${r.name}</td>
+      <td style="text-align:center;padding:7px 8px;color:#38bdf8;">${r.rv}</td>
+      <td style="text-align:center;padding:7px 8px;color:#e31313;">${r.kv}</td>
+      <td style="padding:7px 8px;color:var(--t3);font-size:9px;">${r.detail}</td>
+      <td style="text-align:center;padding:7px 8px;">${wbadge(r.winner)}</td>
+    </tr>`).join('');
+}
+
 async function refreshResults(){
-  try{
-    const d = await (await fetch('/mlops/stats')).json();
-    document.getElementById('r-runs').textContent = d.total_runs||0;
-    document.getElementById('r-docs').textContent = (await (await fetch('/stats')).json()).rag?.doc_count||'—';
-    const rl = d.avg_latency_rag, kl = d.avg_latency_kag;
-    if(rl){ document.getElementById('r-rl').textContent = rl+'ms'; }
-    if(kl){ document.getElementById('r-kl').textContent = kl+'ms'; }
-    const mx = Math.max(rl||0, kl||0, 1);
-    document.getElementById('br-rag').style.width = ((rl||0)/mx*100)+'%';
-    document.getElementById('br-kag').style.width = ((kl||0)/mx*100)+'%';
-    document.getElementById('bv-rag').textContent = rl ? rl+'ms' : '—';
-    document.getElementById('bv-kag').textContent = kl ? kl+'ms' : '—';
+  // ① Always build static matrix immediately (no data needed)
+  buildMatrix(0, 0, null, null, null, null);
 
-    // ── EM / F1 bars ──────────────────────────────────────────────────────────
-    const rEM = d.avg_rag_em, kEM = d.avg_kag_em;
-    const rF1 = d.avg_rag_f1, kF1 = d.avg_kag_f1;
-    const pct = v => v!=null ? (v*100).toFixed(1)+'%' : '—';
-    const setBar = (id, vid, val) => {
-      document.getElementById(id).style.width = val!=null ? (val*100)+'%' : '0%';
-      document.getElementById(vid).textContent = pct(val);
-    };
-    setBar('b-rag-em','v-rag-em', rEM);
-    setBar('b-kag-em','v-kag-em', kEM);
-    setBar('b-rag-f1','v-rag-f1', rF1);
-    setBar('b-kag-f1','v-kag-f1', kF1);
-    if(rEM!=null||kEM!=null){
-      document.getElementById('em-note').style.display='none';
-      // winner KPI
-      const winEl = document.getElementById('r-winner');
-      if(rEM!=null && kEM!=null){
-        if(rEM > kEM){ winEl.textContent='🔵 RAG'; winEl.style.color='var(--blue)'; }
-        else if(kEM > rEM){ winEl.textContent='🔴 KAG'; winEl.style.color='var(--red)'; }
-        else { winEl.textContent='⚡ Ex æquo'; winEl.style.color='var(--yellow)'; }
-      }
-    }
+  // ② Fetch mlops stats
+  let d = {};
+  try {
+    d = await (await fetch('/mlops/stats')).json();
+  } catch(e) {
+    console.error('refreshResults fetch mlops/stats:', e);
+    return;
+  }
 
-    // ── Latency sparkline ─────────────────────────────────────────────────────
-    drawLatencySparkline(d.history||[]);
+  // ③ KPI counters
+  setText('r-runs', d.total_runs ?? 0);
 
-    // ── Decision matrix ───────────────────────────────────────────────────────
-    const mb = document.getElementById('matrix-body');
-    const hasScores = (rEM!=null||kEM!=null);
-    const criteria = [
-      { name:'⏱️ Latence (ms)', ragVal: rl?rl+'ms':'—', kagVal: kl?kl+'ms':'—',
-        winner: rl&&kl ? (rl<kl?'rag':kl<rl?'kag':'tie') : null,
-        detail: rl&&kl ? `RAG: ${rl}ms  KAG: ${kl}ms` : 'Requêtes insuffisantes' },
-      { name:'🎯 Exact Match', ragVal: pct(rEM), kagVal: pct(kEM),
-        winner: rEM!=null&&kEM!=null ? (rEM>kEM?'rag':kEM>rEM?'kag':'tie') : null,
-        detail: hasScores ? `RAG: ${pct(rEM)}  KAG: ${pct(kEM)}` : 'Fournissez des Ground Truths' },
-      { name:'📐 Token F1', ragVal: pct(rF1), kagVal: pct(kF1),
-        winner: rF1!=null&&kF1!=null ? (rF1>kF1?'rag':kF1>rF1?'kag':'tie') : null,
-        detail: hasScores ? `RAG: ${pct(rF1)}  KAG: ${pct(kF1)}` : 'Fournissez des Ground Truths' },
-      { name:'🧠 Raisonnement multi-sauts', ragVal:'Faible ❌', kagVal:'Fort ✅',
-        winner:'kag', detail:'KAG utilise un graphe de triplets pour chaîner les faits' },
-      { name:'🔗 Relations entre entités', ragVal:'Moyen ⚠️', kagVal:'Fort ✅',
-        winner:'kag', detail:'KAG traverse les arêtes du graphe pour trouver les relations' },
-      { name:'📄 Questions factuelles', ragVal:'Fort ✅', kagVal:'Moyen ⚠️',
-        winner:'rag', detail:'RAG retrouve directement les passages textuels pertinents' },
-    ];
-    const winBadge = w => w==='rag'
-      ? `<span style="color:var(--blue);font-weight:700;">🔵 RAG</span>`
-      : w==='kag'
-      ? `<span style="color:var(--red);font-weight:700;">🔴 KAG</span>`
-      : w==='tie' ? `<span style="color:var(--yellow);">⚡ Ex æquo</span>`
-      : `<span style="color:var(--t3);">—</span>`;
-    mb.innerHTML = criteria.map(c=>`
-      <tr style="border-bottom:1px solid var(--bdr);">
-        <td style="padding:7px 8px;font-weight:600;">${c.name}</td>
-        <td style="text-align:center;padding:7px 8px;color:var(--blue);">${c.ragVal}</td>
-        <td style="text-align:center;padding:7px 8px;color:var(--red);">${c.kagVal}</td>
-        <td style="padding:7px 8px;color:var(--t3);font-size:9px;">${c.detail}</td>
-        <td style="text-align:center;padding:7px 8px;">${winBadge(c.winner)}</td>
+  // ④ Docs count (separate, non-blocking)
+  try {
+    const s = await (await fetch('/stats')).json();
+    setText('r-docs', s.rag?.doc_count ?? '—');
+  } catch(e) { setText('r-docs','—'); }
+
+  // ⑤ Latency
+  const rl = d.avg_latency_rag || 0;
+  const kl = d.avg_latency_kag || 0;
+  if(rl) setText('r-rl', rl+'ms');
+  if(kl) setText('r-kl', kl+'ms');
+  const mx = Math.max(rl, kl, 1);
+  setWidth('br-rag', ((rl/mx)*100).toFixed(1));
+  setWidth('br-kag', ((kl/mx)*100).toFixed(1));
+  setText('bv-rag', rl ? rl+'ms' : '—');
+  setText('bv-kag', kl ? kl+'ms' : '—');
+
+  // ⑥ EM / F1 bars
+  const rEM = d.avg_rag_em ?? null;
+  const kEM = d.avg_kag_em ?? null;
+  const rF1 = d.avg_rag_f1 ?? null;
+  const kF1 = d.avg_kag_f1 ?? null;
+
+  setWidth('b-rag-em', rEM!=null ? (rEM*100).toFixed(1) : 0);
+  setText('v-rag-em', pct(rEM));
+  setWidth('b-kag-em', kEM!=null ? (kEM*100).toFixed(1) : 0);
+  setText('v-kag-em', pct(kEM));
+  setWidth('b-rag-f1', rF1!=null ? (rF1*100).toFixed(1) : 0);
+  setText('v-rag-f1', pct(rF1));
+  setWidth('b-kag-f1', kF1!=null ? (kF1*100).toFixed(1) : 0);
+  setText('v-kag-f1', pct(kF1));
+
+  if(rEM!=null || kEM!=null){
+    const noteEl = document.getElementById('em-note');
+    if(noteEl) noteEl.style.display='none';
+  }
+
+  // ⑦ Winner KPI
+  const winEl = document.getElementById('r-winner');
+  if(winEl && rEM!=null && kEM!=null){
+    if(rEM > kEM){ winEl.textContent='🔵 RAG'; winEl.style.color='#38bdf8'; }
+    else if(kEM > rEM){ winEl.textContent='🔴 KAG'; winEl.style.color='#e31313'; }
+    else { winEl.textContent='⚡ Ex æquo'; winEl.style.color='#fbbf24'; }
+  }
+
+  // ⑧ Latency sparkline canvas
+  try { drawLatencySparkline(d.history || []); } catch(e){}
+
+  // ⑨ Rebuild matrix with real data
+  buildMatrix(rl, kl, rEM, kEM, rF1, kF1);
+
+  // ⑩ History table
+  const tbody = document.getElementById('hist-body');
+  if(!tbody) return;
+  const hist = d.history || [];
+  if(hist.length){
+    tbody.innerHTML = hist.slice().reverse().map(r=>`
+      <tr>
+        <td><span style="color:${pipeColor(r.pipeline)};font-weight:700;">${esc(r.pipeline)}</span></td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.question||'')}</td>
+        <td style="text-align:center;color:#38bdf8;">${r.rag_em!=null?(r.rag_em*100).toFixed(0)+'%':'—'}</td>
+        <td style="text-align:center;color:#38bdf8;">${r.rag_f1!=null?(r.rag_f1*100).toFixed(0)+'%':'—'}</td>
+        <td style="text-align:center;color:#e31313;">${r.kag_em!=null?(r.kag_em*100).toFixed(0)+'%':'—'}</td>
+        <td style="text-align:center;color:#e31313;">${r.kag_f1!=null?(r.kag_f1*100).toFixed(0)+'%':'—'}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">${r.latency_ms}ms</td>
       </tr>`).join('');
-
-    // ── History table ─────────────────────────────────────────────────────────
-    const tbody = document.getElementById('hist-body');
-    if(d.history?.length){
-      tbody.innerHTML = d.history.slice().reverse().map(r=>`
-        <tr>
-          <td><span style="color:${pipeColor(r.pipeline)};font-weight:700;">${r.pipeline}</span></td>
-          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.question)}</td>
-          <td style="text-align:center;color:var(--blue);">${r.rag_em!=null?(r.rag_em*100).toFixed(0)+'%':'—'}</td>
-          <td style="text-align:center;color:var(--blue);">${r.rag_f1!=null?(r.rag_f1*100).toFixed(0)+'%':'—'}</td>
-          <td style="text-align:center;color:var(--red);">${r.kag_em!=null?(r.kag_em*100).toFixed(0)+'%':'—'}</td>
-          <td style="text-align:center;color:var(--red);">${r.kag_f1!=null?(r.kag_f1*100).toFixed(0)+'%':'—'}</td>
-          <td style="font-family:'JetBrains Mono';">${r.latency_ms}ms</td>
-        </tr>`).join('');
-    } else {
-      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:14px;">Aucune requête — posez une question dans l\'onglet Comparer</td></tr>';
-    }
-  }catch(e){}
+  } else {
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:14px;">Aucune requête — posez une question dans l\'onglet Comparer</td></tr>';
+  }
 }
 
 // ── Canvas Charts ──────────────────────────────────────────────────────────────
