@@ -57,11 +57,58 @@ app = FastAPI(title="RAG vs KAG")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # ── State ──────────────────────────────────────────────────────────────────────
-rag_index    = None
-documents    = []
-kag_graph    = {"nodes": {}, "relations": {}}
-run_log      = []   # {pipeline, question, answer, latency_ms}
-routing_log  = []   # {question, type, routed_to, reason, confidence}
+rag_index      = None
+documents      = []
+kag_graph      = {"nodes": {}, "relations": {}}
+run_log        = []   # {pipeline, question, answer, latency_ms}
+routing_log    = []   # {question, type, routed_to, reason, confidence}
+uploaded_files = []   # [{name, size_kb, chunks, status}]
+
+# ── File Parsing ───────────────────────────────────────────────────────────────
+def _parse_uploaded_file(filename: str, content: bytes) -> str:
+    """Extrait le texte brut depuis PDF, DOCX, TXT, MD ou CSV."""
+    ext = Path(filename).suffix.lower()
+    try:
+        if ext == ".pdf":
+            if not HAS_PDF:
+                return ""
+            reader = PdfReader(io.BytesIO(content))
+            return "\n".join(p.extract_text() or "" for p in reader.pages)
+        elif ext in (".docx",):
+            if not HAS_DOCX:
+                return ""
+            doc = DocxDocument(io.BytesIO(content))
+            return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        elif ext in (".txt", ".md"):
+            return content.decode("utf-8", errors="ignore")
+        elif ext == ".csv":
+            text = content.decode("utf-8", errors="ignore")
+            # Chaque ligne CSV devient une phrase
+            lines = [l.replace(",", " — ") for l in text.splitlines() if l.strip()]
+            return "\n".join(lines)
+        else:
+            # Essai en UTF-8 pour tout autre format texte
+            return content.decode("utf-8", errors="ignore")
+    except Exception as e:
+        logging.warning(f"Parse error {filename}: {e}")
+        return ""
+
+def _chunk_text(text: str, filename: str, chunk_size: int = 400,
+                overlap: int = 50) -> list:
+    """Découpe le texte en chunks de ~chunk_size mots avec overlap."""
+    words  = text.split()
+    chunks = []
+    step   = max(1, chunk_size - overlap)
+    for i in range(0, len(words), step):
+        chunk_words = words[i:i + chunk_size]
+        if len(chunk_words) < 20:   # ignorer les micro-chunks
+            continue
+        chunks.append({
+            "title": filename,
+            "text":  " ".join(chunk_words),
+            "id":    f"{filename}_{i}"
+        })
+    return chunks
 
 # ── Routing Agent ──────────────────────────────────────────────────────────────
 # Signaux linguistiques pour la classification de questions
@@ -617,7 +664,87 @@ async def stats():
         "total_runs": len(run_log),
         "avg_latency_rag": round(sum(rag_lats)/len(rag_lats)) if rag_lats else 0,
         "avg_latency_kag": round(sum(kag_lats)/len(kag_lats)) if kag_lats else 0,
+        "uploaded_files": uploaded_files,
     }
+
+# ── Upload endpoints ───────────────────────────────────────────────────────────
+@app.post("/upload")
+async def upload_documents(
+    files: List[UploadFile] = File(...),
+    build_kag: bool = Form(True)
+):
+    """Upload de fichiers utilisateur (PDF, DOCX, TXT, MD, CSV).
+    Indexe automatiquement dans RAG (BM25) et construit le graphe KAG."""
+    global rag_index, documents, uploaded_files
+
+    ALLOWED = {".pdf", ".docx", ".txt", ".md", ".csv"}
+    results = []
+    new_chunks = []
+
+    for file in files:
+        ext = Path(file.filename).suffix.lower()
+        if ext not in ALLOWED:
+            results.append({"file": file.filename, "status": "error",
+                            "message": f"Format non supporté : {ext}"})
+            continue
+
+        content = await file.read()
+        size_kb  = round(len(content) / 1024, 1)
+        text     = _parse_uploaded_file(file.filename, content)
+
+        if not text.strip():
+            results.append({"file": file.filename, "status": "error",
+                            "message": "Aucun texte extrait du fichier"})
+            continue
+
+        chunks = _chunk_text(text, file.filename)
+        new_chunks.extend(chunks)
+
+        # Méta dans la liste des fichiers uploadés
+        uploaded_files.append({
+            "name":     file.filename,
+            "size_kb":  size_kb,
+            "chunks":   len(chunks),
+            "status":   "indexé",
+            "ext":      ext.lstrip(".")
+        })
+        results.append({"file": file.filename, "status": "ok",
+                        "chunks": len(chunks), "size_kb": size_kb})
+
+    if not new_chunks:
+        return JSONResponse({"status": "error", "message": "Aucun document valide reçu",
+                             "details": results}, status_code=400)
+
+    # Ajouter aux documents existants
+    documents.extend(new_chunks)
+
+    # Réindexer RAG (BM25) avec tous les documents
+    rag_index = minsearch.Index(text_fields=["text", "title"], keyword_fields=["id"])
+    rag_index.fit(documents)
+
+    # Construire KAG depuis les nouveaux chunks (max 15)
+    if build_kag:
+        build_kag_from_docs(new_chunks)
+
+    return {
+        "status":     "ok",
+        "total_docs": len(documents),
+        "new_chunks": len(new_chunks),
+        "kag_nodes":  len(kag_graph["nodes"]),
+        "kag_rels":   len(kag_graph["relations"]),
+        "files":      results
+    }
+
+@app.delete("/upload/clear")
+async def clear_uploads():
+    """Réinitialise tous les documents uploadés, l'index RAG et le graphe KAG."""
+    global rag_index, documents, kag_graph, uploaded_files
+    documents      = []
+    uploaded_files = []
+    rag_index      = None
+    kag_graph      = {"nodes": {}, "relations": {}}
+    return {"status": "ok", "message": "Tous les documents et le graphe ont été réinitialisés"}
+
 
 @app.get("/mlops/stats")
 async def mlops_stats():

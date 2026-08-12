@@ -1953,12 +1953,16 @@ async function loadPrecomputed(){
 
 // ── Upload documents ──────────────────────────────────────────────────────────
 function fileIcon(name){
-  const ext = name.split('.').pop().toLowerCase();
+  const ext = (name.split('.').pop()||'').toLowerCase();
   if(ext==='pdf')  return '📄';
   if(ext==='docx' || ext==='doc') return '📝';
   if(ext==='md')   return '📋';
   if(ext==='csv')  return '📊';
   return '📃';
+}
+function fileColor(ext){
+  const m = {pdf:'#ef4444',docx:'#3b82f6',txt:'#22c55e',md:'#a78bfa',csv:'#f59e0b'};
+  return m[ext] || '#94a3b8';
 }
 
 async function uploadDocs(files){
@@ -1967,79 +1971,99 @@ async function uploadDocs(files){
   const pbw  = document.getElementById('up-pbw');
   const pb   = document.getElementById('up-pb');
   const list = document.getElementById('up-list');
-  const pipe = document.querySelector('input[name="up-pipe"]:checked')?.value || 'rag';
+  const buildKag = document.querySelector('input[name="up-pipe"]:checked')?.value === 'both';
 
   pbw.style.display='block'; log.style.display='block';
-  log.textContent = `📤 Upload de ${files.length} fichier(s)...\n`;
+  pb.style.width='10%';
+  const names = Array.from(files).map(f=>f.name).join(', ');
+  log.textContent = `📤 Envoi de ${files.length} fichier(s) : ${names}\n⏳ Indexation RAG${buildKag?' + construction KAG':''}...\n`;
 
-  for(let i=0; i<files.length; i++){
-    const file = files[i];
-    log.textContent += `  • ${file.name} (${(file.size/1024).toFixed(0)} KB)...\n`;
-    let p=0;
-    const iv = setInterval(()=>{p=Math.min(p+8,88);pb.style.width=p+'%';},200);
+  // Construire FormData avec tous les fichiers
+  const fd = new FormData();
+  for(const f of files) fd.append('files', f);
+  fd.append('build_kag', buildKag ? 'true' : 'false');
 
-    try{
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('pipeline', pipe);
-      fd.append('chunk_size', '300');
+  // Animation barre de progression
+  let p = 10;
+  const iv = setInterval(()=>{p=Math.min(p+5,88); pb.style.width=p+'%';}, 300);
 
-      const r = await fetch('/upload',{method:'POST', body:fd});
-      const d = await r.json();
-      clearInterval(iv); pb.style.width='100%';
+  try {
+    const resp = await fetch('/upload', {method:'POST', body:fd});
+    clearInterval(iv); pb.style.width='100%';
 
-      if(d.error){
-        log.textContent += `  ❌ Erreur: ${d.error}\n`;
-        toast('err', d.error);
-      } else {
-        log.textContent += `  ✅ ${d.n_chunks} chunks indexés`;
-        if(d.kag_nodes>0) log.textContent += ` | KAG: ${d.kag_nodes} nœuds`;
-        log.textContent += `\n`;
+    if(!resp.ok){
+      const err = await resp.json().catch(()=>({message:resp.statusText}));
+      log.textContent += `❌ Erreur serveur: ${err.message||err.detail||resp.status}\n`;
+      toast('err', 'Upload échoué : '+resp.status);
+      return;
+    }
 
-        // Add to file list
-        const el = document.createElement('div');
+    const d = await resp.json();
+
+    // Log résumé
+    log.textContent += `✅ ${d.new_chunks} chunks indexés dans RAG\n`;
+    if(d.kag_nodes > 0) log.textContent += `🕸️  KAG: ${d.kag_nodes} nœuds · ${d.kag_rels} relations\n`;
+    log.textContent += `📦 Total corpus: ${d.total_docs} passages\n`;
+
+    // Afficher chaque fichier dans la liste
+    if(d.files && d.files.length){
+      d.files.forEach(f => {
+        const ext = (f.file.split('.').pop()||'').toLowerCase();
+        const col = fileColor(ext);
+        const ok  = f.status === 'ok';
+        const el  = document.createElement('div');
         el.className = 'up-file';
         el.innerHTML = `
-          <span class="ficon">${fileIcon(file.name)}</span>
-          <span class="fname">${esc(file.name)}</span>
-          <span class="finfo">${d.n_chunks} chunks · ${(file.size/1024).toFixed(0)}KB</span>`;
+          <span class="ficon">${fileIcon(f.file)}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="fname" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.file)}</div>
+            <div class="finfo">
+              ${ok
+                ? `<span style="color:#22c55e;">✅ ${f.chunks} chunks</span> · ${f.size_kb} KB`
+                : `<span style="color:#ef4444;">❌ ${f.message||'Erreur'}</span>`}
+            </div>
+          </div>
+          <span style="font-size:8px;font-weight:700;padding:2px 5px;border-radius:4px;background:${col}22;color:${col};text-transform:uppercase;">${ext}</span>`;
         list.appendChild(el);
-
-        // Enable KAG button
-        document.getElementById('kag-btn').disabled = false;
-        toast('ok', `${file.name} → ${d.n_chunks} chunks dans RAG`);
-        await fetchStats();
-      }
-    }catch(e){
-      clearInterval(iv);
-      log.textContent += `  ❌ ${e.message}\n`;
-      toast('err', e.message);
+      });
     }
-    setTimeout(()=>{pb.style.width='0%';},800);
+
+    // Activer boutons
+    const kagBtn = document.getElementById('kag-btn');
+    if(kagBtn) kagBtn.disabled = false;
+    toast('ok', `${files.length} fichier(s) indexé(s) — ${d.new_chunks} chunks RAG`);
+    await fetchStats();
+
+  } catch(e) {
+    clearInterval(iv);
+    log.textContent += `❌ ${e.message}\n`;
+    toast('err', e.message);
+  } finally {
+    setTimeout(()=>{pb.style.width='0%'; pbw.style.display='none';}, 1200);
+    const fi = document.getElementById('file-input');
+    if(fi) fi.value = '';
   }
-  pbw.style.display='none';
-  document.getElementById('file-input').value='';
 }
 
 async function resetAll(){
   if(!confirm('Vider tous les documents chargés (HotpotQA + vos fichiers) ?')) return;
   try{
-    await fetch('/reset',{method:'POST'});
+    await fetch('/upload/clear', {method:'DELETE'});
     document.getElementById('up-list').innerHTML='';
     document.getElementById('up-log').textContent='';
-    document.getElementById('load-log').textContent='';
-    document.getElementById('kag-log').textContent='';
-    document.getElementById('kag-btn').disabled=true;
+    const ll = document.getElementById('load-log'); if(ll) ll.textContent='';
+    const kl = document.getElementById('kag-log');  if(kl) kl.textContent='';
+    const kb = document.getElementById('kag-btn');  if(kb) kb.disabled=true;
     await fetchStats();
-    toast('ok','Tous les documents effacés');
-  }catch(e){ toast('err',e.message); }
+    toast('ok','Tous les documents effacés — corpus réinitialisé');
+  }catch(e){ toast('err', e.message); }
 }
 
 // Drag & drop
 const dz = document.getElementById('drop-zone');
 if(dz){
-  dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('over'); });
-  dz.addEventListener('dragleave',()=> dz.classList.remove('over'));
+  dz.addEventListener('dragover',  e=>{ e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', ()=> dz.classList.remove('over'));
   dz.addEventListener('drop', e=>{
     e.preventDefault(); dz.classList.remove('over');
     uploadDocs(e.dataTransfer.files);
