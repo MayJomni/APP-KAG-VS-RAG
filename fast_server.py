@@ -66,14 +66,12 @@ routing_log  = []   # {question, type, routed_to, reason, confidence}
 # ── Routing Agent ──────────────────────────────────────────────────────────────
 # Signaux linguistiques pour la classification de questions
 
-# MULTI-HOP : nécessite de relier plusieurs faits dans le graphe
 MULTIHOP_SIGNALS  = {"same nationality", "also", "were they", "did they",
                      "same country", "same city", "same field", "same genre",
                      "who is also", "who was also", "as well as",
                      "in addition to", "both born", "both studied",
                      "both worked", "how many of them", "which of them"}
 
-# RELATIONNEL : cherche une relation directe entre deux entités
 RELATIONAL_SIGNALS= {"father of", "mother of", "son of", "daughter of",
                      "founded by", "created by", "directed by", "produced by",
                      "who played", "who portrayed", "who held",
@@ -81,103 +79,222 @@ RELATIONAL_SIGNALS= {"father of", "mother of", "son of", "daughter of",
                      "relationship between", "married to", "worked with",
                      "collaborated with", "trained by", "coached by"}
 
-# FACTUEL : cherche une valeur précise (date, nombre, nom)
 FACTUAL_SIGNALS   = {"what year", "when was", "when did", "how many",
                      "how much", "what is the name", "what was the name",
                      "in what year", "what date", "how old", "what number",
                      "which year", "what age", "how long", "what time"}
 
-# BOOLÉEN : question oui/non — détectée par le 1er mot
 BOOLEAN_STARTERS  = {"were", "was", "is", "are", "did", "does",
                      "have", "has", "can", "could", "would", "do",
                      "will", "shall", "might", "should"}
 
+# Mots exclus du comptage d'entités
+STOP_CAPS = {"The","A","An","Is","Are","Was","Were","Did","Does","Have",
+             "Has","Can","Could","Would","Do","Will","Shall","In","Of",
+             "And","Or","But","For","With","From","By","On","At","To"}
+
+
+def _risk_consequences(chosen_pipeline: str, q_type: str,
+                       entity_count: int, mh_hits: int, re_hits: int,
+                       fa_hits: int, is_simple_bool: bool) -> list:
+    """Génère les conséquences si l'utilisateur choisit le mauvais pipeline."""
+    risks = []
+    wrong = "rag" if chosen_pipeline == "kag" else "kag"
+
+    if wrong == "rag":
+        # Risques d'utiliser RAG quand KAG est recommandé
+        if mh_hits > 0:
+            risks.append("❌ RAG ne peut pas chaîner plusieurs faits → réponse partielle ou incorrecte")
+        if re_hits > 0:
+            risks.append("❌ RAG cherche du texte brut, pas des relations → connexion entre entités manquée")
+        if entity_count >= 2:
+            risks.append(f"⚠️ {entity_count} entités détectées → RAG risque de ne trouver qu'un seul contexte")
+        if q_type == "multi_hop":
+            risks.append("❌ Raisonnement multi-sauts impossible sans graphe → hallucination probable")
+        if not risks:
+            risks.append("⚠️ RAG pourrait manquer une relation implicite entre entités du graphe")
+    else:
+        # Risques d'utiliser KAG quand RAG est recommandé
+        if is_simple_bool or q_type == "boolean":
+            risks.append("⚠️ KAG sur-complexifie une question oui/non simple → latence inutile")
+        if q_type == "factual":
+            risks.append("⚠️ Un seul passage de texte suffit → traverser le graphe est inutile")
+        risks.append("❌ Si l'entité n'est pas dans le graphe → réponse vide ou générique")
+        risks.append("⚠️ KAG dépend de la qualité de l'extraction → triplets manquants = erreurs")
+
+    return risks[:3]  # max 3 risques affichés
+
 
 def classify_question(question: str) -> dict:
-    """Classifie la question et retourne les scores pour chaque type (radar chart)."""
+    """Classifie la question avec scoring RAG vs KAG, facteurs détectés et analyse de risque."""
     q     = question.lower().strip()
     words = q.split()
+    orig  = question.split()
     first = words[0] if words else ""
 
-    mh_hits = sum(1 for sig in MULTIHOP_SIGNALS  if sig in q)
-    re_hits = sum(1 for sig in RELATIONAL_SIGNALS if sig in q)
-    fa_hits = sum(1 for sig in FACTUAL_SIGNALS    if sig in q)
-    bo_hit  = 1 if first in BOOLEAN_STARTERS else 0
+    # ── Détection des signaux ──────────────────────────────────────────────────
+    factors_detected = []
 
-    # Question booléenne simple : commence par was/were/did ET courte (≤ 14 mots)
-    # ET pas de signaux relationnels complexes → RAG direct
-    is_simple_boolean = (bo_hit and len(words) <= 14
-                         and re_hits == 0 and mh_hits == 0)
+    mh_hits = 0
+    for sig in MULTIHOP_SIGNALS:
+        if sig in q:
+            mh_hits += 1
+            factors_detected.append({"label": f'"{sig}"', "type": "multi_hop",
+                                     "icon": "🧠", "favor": "kag", "weight": 45})
 
-    # Question booléenne complexe : commence par boolean ET contient "both" ou "and"
-    # avec plusieurs entités → multi-hop potentiel
+    re_hits = 0
+    for sig in RELATIONAL_SIGNALS:
+        if sig in q:
+            re_hits += 1
+            factors_detected.append({"label": f'"{sig}"', "type": "relational",
+                                     "icon": "🔗", "favor": "kag", "weight": 40})
+
+    fa_hits = 0
+    for sig in FACTUAL_SIGNALS:
+        if sig in q:
+            fa_hits += 1
+            factors_detected.append({"label": f'"{sig}"', "type": "factual",
+                                     "icon": "📄", "favor": "rag", "weight": 35})
+
+    bo_hit = 1 if first in BOOLEAN_STARTERS else 0
+    if bo_hit:
+        factors_detected.append({"label": f'commence par "{first}"', "type": "boolean",
+                                 "icon": "❓", "favor": "rag", "weight": 25})
+
+    # Facteur : nombre d'entités propres dans la question
+    entity_count = sum(1 for w in orig
+                       if w[0].isupper() and len(w) > 2 and w not in STOP_CAPS)
+    if entity_count >= 3:
+        factors_detected.append({"label": f"{entity_count} entités nommées", "type": "multi_hop",
+                                 "icon": "👥", "favor": "kag", "weight": 30})
+    elif entity_count == 2:
+        factors_detected.append({"label": "2 entités nommées", "type": "relational",
+                                 "icon": "👥", "favor": "kag", "weight": 20})
+
+    # Facteur : longueur de la question
+    qlen = len(words)
+    if qlen > 18:
+        factors_detected.append({"label": f"question longue ({qlen} mots)", "type": "multi_hop",
+                                 "icon": "📏", "favor": "kag", "weight": 15})
+    elif qlen <= 8:
+        factors_detected.append({"label": f"question courte ({qlen} mots)", "type": "factual",
+                                 "icon": "📏", "favor": "rag", "weight": 15})
+
+    # Facteur : présence de "both" + "and"
     has_both    = "both" in q
     has_and_two = q.count(" and ") >= 1
+    if has_both and has_and_two:
+        factors_detected.append({"label": '"both ... and" détecté', "type": "multi_hop",
+                                 "icon": "🔄", "favor": "kag", "weight": 25})
 
+    # Facteur : pronoms de référence multiple
+    if any(p in words for p in ["they", "them", "their", "both"]):
+        factors_detected.append({"label": "pronom multi-entité", "type": "multi_hop",
+                                 "icon": "🔄", "favor": "kag", "weight": 10})
+
+    # ── Scores RAG vs KAG (0-100) ─────────────────────────────────────────────
+    is_simple_boolean = (bo_hit and qlen <= 14 and re_hits == 0 and mh_hits == 0)
+
+    rag_score  = 10  # base
+    kag_score  = 10  # base
+    rag_score += fa_hits * 30
+    rag_score += 30 if is_simple_boolean else 0
+    rag_score += 15 if qlen <= 8 else 0
+    rag_score += 10 if entity_count <= 1 else 0
+    rag_score += 20 if bo_hit and not has_both else 0
+
+    kag_score += mh_hits * 40
+    kag_score += re_hits * 35
+    kag_score += 25 if has_both and has_and_two else 0
+    kag_score += 20 if entity_count >= 3 else (12 if entity_count == 2 else 0)
+    kag_score += 15 if qlen > 18 else 0
+    kag_score += 10 if any(p in words for p in ["they","them","their"]) else 0
+
+    rag_score = min(100, rag_score)
+    kag_score = min(100, kag_score)
+
+    # Normalisation pour que les deux totalisent 100
+    total = rag_score + kag_score
+    if total > 0:
+        rag_pct = round(rag_score / total * 100)
+        kag_pct = 100 - rag_pct
+    else:
+        rag_pct = kag_pct = 50
+
+    # ── Niveau de risque si mauvais choix ─────────────────────────────────────
+    score_diff = abs(rag_pct - kag_pct)
+    if score_diff >= 35:
+        risk_level, risk_emoji = "Élevé",  "🔴"
+    elif score_diff >= 15:
+        risk_level, risk_emoji = "Modéré", "🟡"
+    else:
+        risk_level, risk_emoji = "Faible",  "🟢"
+
+    # ── Type scores (radar chart) ──────────────────────────────────────────────
     type_scores = {
         "multi_hop":  min(100, mh_hits * 45 + (15 if mh_hits else 0)),
         "relational": min(100, re_hits * 40 + (10 if re_hits else 0)),
         "factual":    min(100, fa_hits * 45 + (10 if fa_hits else 0)),
         "boolean":    bo_hit * 70 + (20 if is_simple_boolean else 0),
     }
-    # Boost multi-hop si "both" + "and" dans une question booléenne
     if bo_hit and has_both and has_and_two:
         type_scores["multi_hop"] = max(type_scores["multi_hop"], 55)
-
-    # Bruit minimal pour radar lisible
     for k in type_scores:
         if type_scores[k] == 0:
             type_scores[k] = 5
 
-    # ── Priorité de classification ──────────────────────────────────────────────
-    # 1. Booléen SIMPLE → priorité maximale (RAG direct)
+    # ── Classification prioritaire ────────────────────────────────────────────
     if is_simple_boolean:
-        q_type    = "boolean"
-        confidence = 0.85
-        reason    = "Question oui/non simple → RAG suffisant (un seul passage de texte)"
-
-    # 2. Multi-hop fort (≥2 signaux ou signal fort + booléen complexe)
+        q_type, confidence = "boolean", 0.85
+        reason = "Question oui/non simple → RAG suffisant (un seul passage de texte)"
     elif mh_hits >= 2 or (mh_hits >= 1 and fa_hits == 0 and re_hits == 0):
-        q_type    = "multi_hop"
-        confidence = 0.90
-        reason    = "Multi-sauts détectés → KAG nécessaire (raisonnement sur le graphe)"
-
-    # 3. Booléen COMPLEXE (both + and + entités multiples)
+        q_type, confidence = "multi_hop", 0.90
+        reason = "Multi-sauts détectés → KAG nécessaire (raisonnement sur le graphe)"
     elif bo_hit and has_both and has_and_two:
-        q_type    = "multi_hop"
-        confidence = 0.82
-        reason    = "Question oui/non sur deux entités → KAG pour comparer dans le graphe"
-
-    # 4. Relationnel
+        q_type, confidence = "multi_hop", 0.82
+        reason = "Oui/non sur deux entités distinctes → KAG pour comparer dans le graphe"
     elif re_hits:
-        q_type    = "relational"
-        confidence = 0.88
-        reason    = "Relation entre entités → KAG (triplets du graphe)"
-
-    # 5. Factuel
+        q_type, confidence = "relational", 0.88
+        reason = "Relation entre entités détectée → KAG (parcours des arêtes du graphe)"
     elif fa_hits:
-        q_type    = "factual"
-        confidence = 0.85
-        reason    = "Fait direct recherché → RAG (passages textuels)"
-
-    # 6. Booléen standard (premier mot = booléen mais non classé simple)
+        q_type, confidence = "factual", 0.85
+        reason = "Valeur précise recherchée → RAG (passages BM25 pertinents)"
     elif bo_hit:
-        q_type    = "boolean"
-        confidence = 0.78
-        reason    = "Question oui/non → Ensemble pour arbitrage RAG + KAG"
-
+        q_type, confidence = "boolean", 0.78
+        reason = "Question oui/non → Ensemble pour arbitrage RAG + KAG"
     else:
-        # Fallback LLM léger
         sys_p = ("Classify this question in ONE word: multi_hop | relational | factual | boolean. "
                  "Just the word, no explanation.")
         res   = llm(sys_p, question, max_tokens=5).strip().lower()
         q_type    = res if res in ("multi_hop","relational","factual","boolean") else "factual"
         confidence = 0.70
-        reason    = "Classifié par LLM (aucun signal lexical détecté)"
+        reason = "Classifié par LLM (aucun signal lexical détecté)"
         type_scores[q_type] = max(type_scores[q_type], 60)
 
-    return {"type": q_type, "confidence": confidence,
-            "reason": reason, "type_scores": type_scores}
+    # Pipeline recommandé selon les scores
+    recommended = "rag" if rag_pct >= kag_pct else "kag"
+
+    # ── Analyse de risque si mauvais choix ────────────────────────────────────
+    risk_consequences = _risk_consequences(
+        recommended, q_type, entity_count,
+        mh_hits, re_hits, fa_hits, is_simple_boolean
+    )
+
+    return {
+        "type": q_type,
+        "confidence": confidence,
+        "reason": reason,
+        "type_scores": type_scores,
+        # Nouveau : scoring comparatif
+        "score_rag": rag_pct,
+        "score_kag": kag_pct,
+        "risk_level": risk_level,
+        "risk_emoji": risk_emoji,
+        "risk_consequences": risk_consequences,
+        "factors_detected": factors_detected,
+        "entity_count": entity_count,
+        "q_length": qlen,
+    }
 
 
 def route_question(question: str) -> dict:
@@ -188,11 +305,8 @@ def route_question(question: str) -> dict:
     q_type    = clf["type"]
     words     = question.lower().split()
     first     = words[0] if words else ""
-    is_simple_bool = (first in BOOLEAN_STARTERS
-                      and len(words) <= 14
-                      and q_type == "boolean")
+    is_simple_bool = (first in BOOLEAN_STARTERS and len(words) <= 14 and q_type == "boolean")
 
-    # Pipelines indisponibles
     if not kag_ready and not rag_ready:
         return {**clf, "pipeline": "none",
                 "reason": "Aucun pipeline disponible — chargez des données d'abord"}
@@ -203,31 +317,24 @@ def route_question(question: str) -> dict:
         return {**clf, "pipeline": "kag",
                 "reason": f"RAG non disponible. KAG utilisé (question: {q_type})"}
 
-    # ── Stratégie de routage ────────────────────────────────────────────────────
     if q_type == "multi_hop":
         return {**clf, "pipeline": "kag",
-                "reason": "KAG ✓ : question multi-sauts → raisonnement sur le graphe de triplets"}
-
+                "reason": "KAG ✓ : multi-sauts → raisonnement sur le graphe de triplets"}
     if q_type == "relational":
         return {**clf, "pipeline": "kag",
                 "reason": "KAG ✓ : relation entre entités → parcours des arêtes du graphe"}
-
     if q_type == "factual":
         return {**clf, "pipeline": "rag",
                 "reason": "RAG ✓ : fait direct → passages BM25 pertinents"}
-
     if q_type == "boolean":
         if is_simple_bool:
-            # Oui/non simple → RAG suffit (réponse dans un seul passage)
             return {**clf, "pipeline": "rag",
-                    "reason": "RAG ✓ : oui/non simple → un passage suffit (pas besoin du graphe)"}
-        else:
-            # Oui/non complexe → Ensemble pour arbitrage
-            return {**clf, "pipeline": "ensemble",
-                    "reason": "Ensemble ✓ : oui/non complexe → RAG + KAG + agent arbitre"}
+                    "reason": "RAG ✓ : oui/non simple → un passage suffit"}
+        return {**clf, "pipeline": "ensemble",
+                "reason": "Ensemble ✓ : oui/non complexe → RAG + KAG + agent arbitre"}
 
     return {**clf, "pipeline": "ensemble",
-            "reason": "Incertain → Ensemble RAG + KAG pour plus de robustesse"}
+            "reason": "Incertain → Ensemble RAG + KAG pour robustesse"}
 
 def ensemble_answer(question: str, rag: dict, kag: dict, routing: dict) -> dict:
     """Agent arbitre : choisit la meilleure réponse entre RAG et KAG."""

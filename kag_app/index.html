@@ -593,35 +593,68 @@ tr:hover td{background:var(--card);}
           </div>
         </div>
 
-        <!-- Routing decision tree -->
-        <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:10px;" id="why-panel">
-          <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:8px;">⚖️ Pourquoi ce pipeline ?</div>
-          <div id="why-content" style="color:var(--t3);font-size:9px;line-height:1.7;">
-            Posez une question pour voir l'analyse des critères de sélection.
+        <!-- ① Score RAG vs KAG -->
+        <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:10px;" id="score-panel">
+          <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:8px;">⚖️ Score RAG vs KAG</div>
+          <div style="font-size:8px;color:var(--t3);margin-bottom:6px;" id="score-reason">Posez une question pour voir le score.</div>
+          <!-- Barre duale RAG|KAG -->
+          <div style="display:flex;height:18px;border-radius:6px;overflow:hidden;margin-bottom:6px;">
+            <div id="score-bar-rag" style="background:linear-gradient(90deg,#1e40af,#38bdf8);width:50%;transition:width .5s;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;">
+              <span id="score-pct-rag" style="font-size:9px;font-weight:800;color:#fff;">50%</span>
+            </div>
+            <div id="score-bar-kag" style="background:linear-gradient(90deg,#e31313,#f97316);width:50%;transition:width .5s;display:flex;align-items:center;padding-left:4px;">
+              <span id="score-pct-kag" style="font-size:9px;font-weight:800;color:#fff;">50%</span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;">
+            <span style="color:#38bdf8;font-weight:700;">🔵 RAG</span>
+            <span id="score-verdict" style="color:var(--t3);">—</span>
+            <span style="color:#e31313;font-weight:700;">KAG 🔴</span>
+          </div>
+          <!-- Critères statiques enrichis -->
+          <div style="margin-top:8px;border-top:1px solid var(--bdr);padding-top:6px;">
+            <div style="font-size:8px;font-weight:700;color:var(--t3);margin-bottom:4px;">📊 Comparaison multi-critères</div>
+            <table style="width:100%;font-size:7.5px;border-collapse:collapse;">
+              <thead><tr>
+                <th style="text-align:left;color:var(--t3);padding:1px 0;">Critère</th>
+                <th style="text-align:center;color:#38bdf8;">RAG</th>
+                <th style="text-align:center;color:#e31313;">KAG</th>
+              </tr></thead>
+              <tbody>
+                <tr><td style="color:var(--t2);padding:2px 0;">Question factuelle directe</td><td style="text-align:center;">✅</td><td style="text-align:center;">⚠️</td></tr>
+                <tr><td style="color:var(--t2);padding:2px 0;">Multi-sauts logiques</td><td style="text-align:center;">❌</td><td style="text-align:center;">✅</td></tr>
+                <tr><td style="color:var(--t2);padding:2px 0;">Relation entre entités</td><td style="text-align:center;">⚠️</td><td style="text-align:center;">✅</td></tr>
+                <tr><td style="color:var(--t2);padding:2px 0;">Question oui/non simple</td><td style="text-align:center;">✅</td><td style="text-align:center;">⚠️</td></tr>
+                <tr><td style="color:var(--t2);padding:2px 0;">Latence de réponse</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+                <tr><td style="color:var(--t2);padding:2px 0;">Raisonnement chaîné</td><td style="text-align:center;">❌</td><td style="text-align:center;">✅</td></tr>
+                <tr><td style="color:var(--t2);padding:2px 0;">Comparaison d'entités</td><td style="text-align:center;">❌</td><td style="text-align:center;">✅</td></tr>
+                <tr><td style="color:var(--t2);padding:2px 0;">Texte long / corpus</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
+              </tbody>
+            </table>
+            <div style="font-size:7px;color:var(--t3);margin-top:4px;">✅ Fort &nbsp;⚠️ Moyen &nbsp;❌ Faible</div>
           </div>
         </div>
 
-        <!-- Criteria table: when to use which -->
+        <!-- ② Facteurs détectés -->
         <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:8px;">📊 Critères de sélection</div>
-          <table style="width:100%;font-size:8px;border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left;color:var(--t3);padding:2px 0;font-weight:600;">Critère</th>
-                <th style="text-align:center;color:var(--blue);padding:2px 4px;">RAG</th>
-                <th style="text-align:center;color:var(--red);padding:2px 4px;">KAG</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td style="color:var(--t2);padding:3px 0;">Question factuelle</td><td style="text-align:center;">✅</td><td style="text-align:center;">⚠️</td></tr>
-              <tr><td style="color:var(--t2);padding:3px 0;">Multi-sauts logiques</td><td style="text-align:center;">❌</td><td style="text-align:center;">✅</td></tr>
-              <tr><td style="color:var(--t2);padding:3px 0;">Relation entre entités</td><td style="text-align:center;">⚠️</td><td style="text-align:center;">✅</td></tr>
-              <tr><td style="color:var(--t2);padding:3px 0;">Question oui/non</td><td style="text-align:center;">⚠️</td><td style="text-align:center;">⚠️</td></tr>
-              <tr><td style="color:var(--t2);padding:3px 0;">Latence rapide</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
-              <tr><td style="color:var(--t2);padding:3px 0;">Raisonnement chaîné</td><td style="text-align:center;">❌</td><td style="text-align:center;">✅</td></tr>
-            </tbody>
-          </table>
-          <div style="font-size:8px;color:var(--t3);margin-top:6px;">✅ Fort &nbsp;⚠️ Moyen &nbsp;❌ Faible</div>
+          <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:6px;">🔍 Facteurs détectés</div>
+          <div id="factors-list" style="font-size:8px;color:var(--t3);line-height:1.8;">
+            Aucun signal lexical — posez une question.
+          </div>
+        </div>
+
+        <!-- ③ Risques si mauvais choix -->
+        <div style="background:var(--bg2);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px;" id="risk-panel">
+          <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <span id="risk-emoji">⚠️</span> Risques si mauvais choix
+            <span id="risk-badge" style="margin-left:auto;font-size:8px;padding:2px 6px;border-radius:4px;background:rgba(251,191,36,.15);color:#fbbf24;">—</span>
+          </div>
+          <div id="risk-list" style="font-size:8px;color:var(--t3);line-height:1.8;">
+            Posez une question pour voir les risques.
+          </div>
+          <div id="risk-footer" style="font-size:7px;color:var(--t3);margin-top:6px;border-top:1px solid var(--bdr);padding-top:4px;" hidden>
+            Si vous utilisez <span id="risk-wrong-pipe" style="font-weight:700;"></span> à la place du pipeline recommandé.
+          </div>
         </div>
 
         <!-- Routing distribution mini donut -->
@@ -1076,6 +1109,7 @@ async function askSmart(){
     // Update right panel charts
     if(d.routing?.type_scores) drawRadar(d.routing.type_scores);
     updateWhyPanel(d.routing||{});
+    updateAgentPanels(d.routing||{});  // Score RAG/KAG + Facteurs + Risques
     await refreshRouting();
   }catch(e){
     typing.textContent='❌ Erreur: '+e.message;
@@ -1734,6 +1768,81 @@ function drawLatencySparkline(history){
   ctx.font='7px Inter';
   ctx.fillText('🔵 RAG  🔴 KAG  (dernières '+cmp.length+' requêtes)', 10, H-1);
 }
+
+  // ── Agent Panels: Score, Factors, Risks ─────────────────────────────────
+  function updateAgentPanels(d) {
+    // ① Score RAG vs KAG
+    const srag = d.score_rag ?? 50;
+    const skag = d.score_kag ?? 50;
+    const sbRag = document.getElementById('score-bar-rag');
+    const sbKag = document.getElementById('score-bar-kag');
+    if(sbRag) sbRag.style.width = srag + '%';
+    if(sbKag) sbKag.style.width = skag + '%';
+    const spRag = document.getElementById('score-pct-rag');
+    const spKag = document.getElementById('score-pct-kag');
+    if(spRag) spRag.textContent = srag + '%';
+    if(spKag) spKag.textContent = skag + '%';
+    const verdict = document.getElementById('score-verdict');
+    if(verdict) {
+      if(srag > skag) verdict.innerHTML = '<span style="color:#38bdf8;font-weight:700;">→ RAG recommandé</span>';
+      else if(skag > srag) verdict.innerHTML = '<span style="color:#e31313;font-weight:700;">KAG recommandé ←</span>';
+      else verdict.innerHTML = '<span style="color:#fbbf24;">Égalité</span>';
+    }
+    const sr = document.getElementById('score-reason');
+    if(sr) sr.textContent = d.reason || '';
+
+    // ② Facteurs détectés
+    const fl = document.getElementById('factors-list');
+    if(fl) {
+      const factors = d.factors_detected || [];
+      if(factors.length === 0) {
+        fl.innerHTML = '<span style="color:var(--t3);">Aucun signal lexical détecté.</span>';
+      } else {
+        fl.innerHTML = factors.map(f => {
+          const col = f.favor === 'rag' ? '#38bdf8' : '#e31313';
+          const pipe = f.favor === 'rag' ? '→ RAG' : '→ KAG';
+          return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+            <span>${f.icon||'•'}</span>
+            <span style="color:var(--t2);flex:1;">${esc(f.label)}</span>
+            <span style="color:${col};font-weight:700;font-size:7px;">${pipe}</span>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    // ③ Risques si mauvais choix
+    const rl2 = document.getElementById('risk-level-badge');
+    const rb = document.getElementById('risk-badge');
+    const re2 = document.getElementById('risk-emoji');
+    const rlist = document.getElementById('risk-list');
+    const rfooter = document.getElementById('risk-footer');
+    const rwrong = document.getElementById('risk-wrong-pipe');
+    const riskLvl = d.risk_level || '—';
+    const riskEmoji = d.risk_emoji || '⚠️';
+    const risks = d.risk_consequences || [];
+    const recPipe = (d.score_rag||50) >= (d.score_kag||50) ? 'RAG' : 'KAG';
+    const wrongPipe = recPipe === 'RAG' ? 'KAG' : 'RAG';
+    if(re2) re2.textContent = riskEmoji;
+    if(rb) {
+      rb.textContent = riskLvl;
+      const rCol = riskLvl==='Élevé'?'rgba(239,68,68,.2)':riskLvl==='Modéré'?'rgba(251,191,36,.15)':'rgba(34,197,94,.15)';
+      const tCol = riskLvl==='Élevé'?'#ef4444':riskLvl==='Modéré'?'#fbbf24':'#22c55e';
+      rb.style.background = rCol;
+      rb.style.color = tCol;
+    }
+    if(rlist) {
+      if(risks.length === 0) {
+        rlist.innerHTML = '<span style="color:var(--t3);">Aucun risque identifié.</span>';
+      } else {
+        rlist.innerHTML = risks.map(r => `<div style="margin-bottom:3px;">${esc(r)}</div>`).join('');
+      }
+    }
+    if(rfooter && rwrong && risks.length > 0) {
+      rfooter.hidden = false;
+      rwrong.textContent = wrongPipe;
+      rwrong.style.color = wrongPipe==='RAG'?'#38bdf8':'#e31313';
+    }
+  }
 
 function updateWhyPanel(routing){
   const wc = document.getElementById('why-content');
