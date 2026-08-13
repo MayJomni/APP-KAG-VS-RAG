@@ -467,34 +467,54 @@ def rag_answer(question):
     t0 = time.time()
     results, context = rag_search(question)
 
-    # Fallback : si aucun document chargé, répondre avec connaissance générale
+    # Fallback : si aucun document chargé
     if not results:
-        sys_p = ("You are a knowledgeable QA assistant. "
-                 "Answer the question directly and concisely (1 sentence). "
-                 "Always give your best answer — never refuse or say you don't know. "
-                 "For yes/no questions answer just 'yes' or 'no'.")
+        sys_p = (
+            "You are a knowledgeable QA assistant. "
+            "Give a detailed, informative answer of at least 3 sentences (minimum 200 characters). "
+            "Cover the what, why, and how. Never refuse or say you don't know."
+        )
         prompt = f"QUESTION: {question}"
         context = "[Connaissance générale — aucun document spécifique chargé]"
     else:
-        sys_p = ("You are a QA assistant. Answer the question using the context. "
-                 "Be SHORT and DIRECT (1 sentence max). "
-                 "For yes/no questions answer just 'yes' or 'no'. "
-                 "Even if context is partial, give your best possible answer — NEVER say 'I don't know'. "
-                 "If context is insufficient, use your general knowledge to complete the answer.")
+        sys_p = (
+            "You are a QA assistant. Answer the question using ONLY the context provided below. "
+            "Write a DETAILED answer of at least 3 complete sentences (minimum 200 characters). "
+            "Explain the key facts, include relevant details from the context, and be thorough. "
+            "Do NOT truncate. Do NOT say 'I don't know'. "
+            "If context is partial, complete with your general knowledge but stay factual."
+        )
         prompt = f"QUESTION: {question}\n\nCONTEXT:\n{context}"
 
-    answer = llm(sys_p, prompt, max_tokens=100)
+    answer = llm(sys_p, prompt, max_tokens=350)
+
     # Nettoyer les réponses de type refus
-    if any(p in answer.lower() for p in ["i don't know", "i do not know", "cannot determine",
-                                          "not enough information", "je ne sais pas"]):
+    REFUSALS = ["i don't know", "i do not know", "cannot determine",
+                "not enough information", "je ne sais pas", "unable to"]
+    if any(p in answer.lower() for p in REFUSALS):
         answer = llm(
-            "Answer this question with your best knowledge in 1 sentence. Be direct.",
-            question, max_tokens=80
+            "Answer this question with your best knowledge. "
+            "Write at least 3 sentences with concrete details (minimum 200 characters).",
+            question, max_tokens=300
         )
+
+    # Garantie longueur minimale : si < 200 chars, relancer
+    if len(answer.strip()) < 200:
+        expand_p = (
+            "The following answer is too short. Expand it to at least 200 characters "
+            "by adding more detail, context, and explanation. Keep it factual and relevant."
+        )
+        expanded = llm(expand_p,
+                       f"QUESTION: {question}\n\nSHORT ANSWER TO EXPAND: {answer}\n\nCONTEXT:\n{context[:1500]}",
+                       max_tokens=350)
+        if len(expanded.strip()) > len(answer.strip()):
+            answer = expanded
+
     return {
         "answer": answer,
         "context": context,
-        "sources": [{"title": r.get("title",""), "snippet": r.get("text","")[:200]}
+        "answer_length": len(answer.strip()),
+        "sources": [{"title": r.get("title",""), "snippet": r.get("text","")[:500]}
                     for r in results],
         "latency_ms": round((time.time()-t0)*1000)
     }
@@ -606,29 +626,46 @@ def kag_answer(question):
     if triplets:
         context = "\n".join(t["label"] for t in triplets)
     else:
-        # Graphe vide : répondre avec connaissance générale
         context = "[Graphe KAG vide — réponse basée sur connaissance générale]"
 
-    sys_p = ("You are a QA expert. Answer the question using the knowledge graph facts provided. "
-             "Be SHORT and DIRECT (1 sentence max). "
-             "For yes/no questions answer ONLY 'yes' or 'no'. "
-             "Always give your best answer using the facts available. "
-             "If facts are partial, reason from them and complete with your knowledge. "
-             "NEVER say 'I don't know' or refuse to answer.")
+    sys_p = (
+        "You are a knowledge graph QA expert. Answer the question using the facts below. "
+        "Write a DETAILED, STRUCTURED answer of at least 3 sentences (minimum 200 characters). "
+        "Explain each relevant fact and its significance. "
+        "If multiple facts are relevant, describe all of them clearly. "
+        "Do NOT summarize in one line. Do NOT say 'I don't know'. "
+        "Complete any gaps using your general knowledge while staying factual."
+    )
     prompt = f"QUESTION: {question}\n\nKNOWLEDGE GRAPH FACTS:\n{context}"
-    answer = llm(sys_p, prompt, max_tokens=100)
+    answer = llm(sys_p, prompt, max_tokens=350)
 
     # Nettoyer les réponses de type refus
-    if any(p in answer.lower() for p in ["i don't know", "i do not know", "cannot determine",
-                                          "not enough information", "je ne sais pas",
-                                          "pas de réponse", "impossible"]):
+    REFUSALS = ["i don't know", "i do not know", "cannot determine",
+                "not enough information", "je ne sais pas", "pas de réponse",
+                "impossible", "unable to"]
+    if any(p in answer.lower() for p in REFUSALS):
         answer = llm(
-            "Answer this question with your best knowledge in 1 sentence. Be direct.",
-            question, max_tokens=80
+            "Answer this question with your best knowledge. "
+            "Write at least 3 sentences with concrete details (minimum 200 characters).",
+            question, max_tokens=300
         )
+
+    # Garantie longueur minimale : si < 200 chars, relancer
+    if len(answer.strip()) < 200:
+        expand_p = (
+            "The following answer is too short. Expand it to at least 200 characters "
+            "by adding more detail and explanation from the knowledge graph facts."
+        )
+        expanded = llm(expand_p,
+                       f"QUESTION: {question}\n\nSHORT ANSWER TO EXPAND: {answer}\n\nFACTS:\n{context}",
+                       max_tokens=350)
+        if len(expanded.strip()) > len(answer.strip()):
+            answer = expanded
+
     return {
         "answer": answer,
         "context": context,
+        "answer_length": len(answer.strip()),
         "triplets": triplets,
         "latency_ms": round((time.time()-t0)*1000)
     }
