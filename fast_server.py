@@ -467,46 +467,54 @@ def rag_answer(question):
     t0 = time.time()
     results, context = rag_search(question)
 
-    # Fallback : si aucun document chargé
     if not results:
+        # Aucun document chargé — connaissance générale
         sys_p = (
             "You are a knowledgeable QA assistant. "
             "Give a detailed, informative answer of at least 3 sentences (minimum 200 characters). "
             "Cover the what, why, and how. Never refuse or say you don't know."
         )
-        prompt = f"QUESTION: {question}"
+        prompt  = f"QUESTION: {question}"
         context = "[Connaissance générale — aucun document spécifique chargé]"
     else:
         sys_p = (
-            "You are a QA assistant. Answer the question using ONLY the context provided below. "
+            "You are a precise document QA assistant. "
+            "The CONTEXT below IS the exact content extracted from the uploaded document. "
+            "It is real text from the file — you CAN and MUST use it directly. "
+            "NEVER say the document is unavailable or that you cannot access it. "
+            "Answer the question by reading and quoting from the CONTEXT. "
             "Write a DETAILED answer of at least 3 complete sentences (minimum 200 characters). "
-            "Explain the key facts, include relevant details from the context, and be thorough. "
-            "Do NOT truncate. Do NOT say 'I don't know'. "
-            "If context is partial, complete with your general knowledge but stay factual."
+            "Include key facts and relevant details found in the text. "
+            "If the question asks to extract characters or text, quote the relevant passage verbatim. "
+            "Do NOT truncate. If context is partial, complete with your general knowledge."
         )
-        prompt = f"QUESTION: {question}\n\nCONTEXT:\n{context}"
+        prompt = f"QUESTION: {question}\n\nCONTEXT (content of the uploaded document):\n{context}"
 
-    answer = llm(sys_p, prompt, max_tokens=350)
+    answer = llm(sys_p, prompt, max_tokens=400)
 
-    # Nettoyer les réponses de type refus
-    REFUSALS = ["i don't know", "i do not know", "cannot determine",
-                "not enough information", "je ne sais pas", "unable to"]
-    if any(p in answer.lower() for p in REFUSALS):
+    # Supprimer les hallucinations de refus
+    HALLUCINATIONS = [
+        "not available for me to access", "i cannot access", "i can't access",
+        "uploaded document is not available", "do not have access to the file",
+        "i don't know", "i do not know", "cannot determine",
+        "not enough information", "je ne sais pas", "unable to"
+    ]
+    if any(p in answer.lower() for p in HALLUCINATIONS):
+        # Relancer avec contexte injecté directement dans le prompt utilisateur
         answer = llm(
-            "Answer this question with your best knowledge. "
-            "Write at least 3 sentences with concrete details (minimum 200 characters).",
-            question, max_tokens=300
+            "You are a document QA assistant. The text below IS the document. Read it and answer.",
+            f"QUESTION: {question}\n\nDOCUMENT TEXT:\n{context[:2000]}\n\n"
+            f"Write at least 3 sentences using only the document text above (minimum 200 characters).",
+            max_tokens=400
         )
 
-    # Garantie longueur minimale : si < 200 chars, relancer
+    # Garantie longueur minimale
     if len(answer.strip()) < 200:
-        expand_p = (
-            "The following answer is too short. Expand it to at least 200 characters "
-            "by adding more detail, context, and explanation. Keep it factual and relevant."
+        expanded = llm(
+            "Expand this answer to at least 200 characters by quoting more from the document.",
+            f"QUESTION: {question}\n\nCURRENT ANSWER: {answer}\n\nDOCUMENT:\n{context[:2000]}",
+            max_tokens=400
         )
-        expanded = llm(expand_p,
-                       f"QUESTION: {question}\n\nSHORT ANSWER TO EXPAND: {answer}\n\nCONTEXT:\n{context[:1500]}",
-                       max_tokens=350)
         if len(expanded.strip()) > len(answer.strip()):
             answer = expanded
 
@@ -622,43 +630,66 @@ def kag_search(question):
 def kag_answer(question):
     t0 = time.time()
     triplets = kag_search(question)
+    used_rag_fallback = False
 
     if triplets:
         context = "\n".join(t["label"] for t in triplets)
     else:
-        context = "[Graphe KAG vide — réponse basée sur connaissance générale]"
+        # Graphe KAG vide — fallback sur les chunks du corpus (RAG search)
+        # au lieu de dire "pas de document", on extrait les faits directement
+        rag_results, rag_context = rag_search(question, num_results=8)
+        if rag_results:
+            used_rag_fallback = True
+            # Présenter les chunks comme des faits structurés
+            context = "[Faits extraits du document uploadé]\n" + rag_context
+            # Construire des pseudo-triplets pour l'affichage
+            triplets = [
+                {"source": r.get("title", "Document"),
+                 "relation": "contains",
+                 "target": r.get("text", "")[:120] + "...",
+                 "label": f"{r.get('title','Document')} —[contient]→ {r.get('text','')[:80]}..."}
+                for r in rag_results[:5]
+            ]
+        else:
+            context = "[Aucun document chargé — réponse basée sur connaissance générale]"
 
     sys_p = (
-        "You are a knowledge graph QA expert. Answer the question using the facts below. "
+        "You are a knowledge graph QA expert. "
+        "The FACTS or DOCUMENT TEXT below is extracted from the uploaded document. "
+        "It is REAL content from the file — you CAN and MUST use it. "
+        "NEVER say the document is unavailable or that you cannot access it. "
+        "Answer the question using the facts/text provided. "
         "Write a DETAILED, STRUCTURED answer of at least 3 sentences (minimum 200 characters). "
         "Explain each relevant fact and its significance. "
-        "If multiple facts are relevant, describe all of them clearly. "
-        "Do NOT summarize in one line. Do NOT say 'I don't know'. "
-        "Complete any gaps using your general knowledge while staying factual."
+        "If the question asks to extract text or characters, quote directly from the facts. "
+        "Do NOT say 'I don't know'. Complete any gaps using your general knowledge."
     )
-    prompt = f"QUESTION: {question}\n\nKNOWLEDGE GRAPH FACTS:\n{context}"
-    answer = llm(sys_p, prompt, max_tokens=350)
+    prompt = f"QUESTION: {question}\n\nFACTS FROM DOCUMENT:\n{context}"
+    answer = llm(sys_p, prompt, max_tokens=400)
 
-    # Nettoyer les réponses de type refus
-    REFUSALS = ["i don't know", "i do not know", "cannot determine",
-                "not enough information", "je ne sais pas", "pas de réponse",
-                "impossible", "unable to"]
-    if any(p in answer.lower() for p in REFUSALS):
+    # Supprimer les hallucinations de refus
+    HALLUCINATIONS = [
+        "not available for me to access", "i cannot access", "i can't access",
+        "uploaded document is not available", "do not have access to the file",
+        "i don't know", "i do not know", "cannot determine",
+        "not enough information", "je ne sais pas", "pas de réponse",
+        "impossible", "unable to", "n'avez pas téléchargé", "aucun document"
+    ]
+    if any(p in answer.lower() for p in HALLUCINATIONS):
         answer = llm(
-            "Answer this question with your best knowledge. "
-            "Write at least 3 sentences with concrete details (minimum 200 characters).",
-            question, max_tokens=300
+            "You are a document QA assistant. The facts below ARE from the document. Read and answer.",
+            f"QUESTION: {question}\n\nDOCUMENT FACTS:\n{context[:2000]}\n\n"
+            f"Write at least 3 sentences using only the facts above (minimum 200 characters).",
+            max_tokens=400
         )
 
-    # Garantie longueur minimale : si < 200 chars, relancer
+    # Garantie longueur minimale
     if len(answer.strip()) < 200:
-        expand_p = (
-            "The following answer is too short. Expand it to at least 200 characters "
-            "by adding more detail and explanation from the knowledge graph facts."
+        expanded = llm(
+            "Expand this answer to at least 200 characters by adding more detail from the document facts.",
+            f"QUESTION: {question}\n\nCURRENT ANSWER: {answer}\n\nFACTS:\n{context[:2000]}",
+            max_tokens=400
         )
-        expanded = llm(expand_p,
-                       f"QUESTION: {question}\n\nSHORT ANSWER TO EXPAND: {answer}\n\nFACTS:\n{context}",
-                       max_tokens=350)
         if len(expanded.strip()) > len(answer.strip()):
             answer = expanded
 
@@ -667,6 +698,7 @@ def kag_answer(question):
         "context": context,
         "answer_length": len(answer.strip()),
         "triplets": triplets,
+        "used_rag_fallback": used_rag_fallback,
         "latency_ms": round((time.time()-t0)*1000)
     }
 
