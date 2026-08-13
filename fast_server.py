@@ -2,7 +2,15 @@
 fast_server.py — Serveur RAG vs KAG (version corrigée)
 """
 import os, sys, time, json, logging, re, string, io
+
+# Force UTF-8 stdout/stderr sur Windows (évite UnicodeEncodeError avec cp1252)
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr.encoding and sys.stderr.encoding.lower() != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 from pathlib import Path
+
 from collections import Counter
 from typing import List, Optional
 
@@ -542,41 +550,68 @@ EXTRACT_SYS = (
 )
 
 def build_kag_from_docs(docs):
-    """Construit le graphe KAG avec batching + format compact + modèle haute limite."""
+    """Construit le graphe KAG depuis les documents chargés.
+    Inclut logging, fallback model, et gestion d'erreur correcte.
+    """
     global kag_graph
     kag_graph = {"nodes": {}, "relations": {}}
-    batch_size = 3          # 3 docs par appel LLM
-    max_docs   = 15         # max docs à traiter
+    batch_size = 3
+    max_docs   = 20   # jusqu'à 20 chunks
 
     doc_list = docs[:max_docs]
-    batches  = [doc_list[i:i+batch_size] for i in range(0, len(doc_list), batch_size)]
+    if not doc_list:
+        print("[KAG] Aucun document à traiter.")
+        return
 
-    for batch in batches:
-        # Construire le texte de batch
+    batches = [doc_list[i:i+batch_size] for i in range(0, len(doc_list), batch_size)]
+    print(f"[KAG] Début extraction : {len(doc_list)} docs, {len(batches)} batches")
+
+    for b_idx, batch in enumerate(batches):
         combined = ""
         for idx, doc in enumerate(batch):
-            title = doc.get("title", "")
-            text  = doc.get("text",  "")[:300]   # 300 mots par doc
+            title = doc.get("title", f"doc_{idx}")
+            text  = doc.get("text",  "")[:400]
             combined += f"[DOC{idx+1}: {title}]\n{text}\n\n"
 
-        try:
-            raw = llm(
-                EXTRACT_SYS,
-                combined,
-                max_tokens=120,          # ~5 triplets × 3 docs = 15 lignes max
-                model=MODEL_EXTRACT      # gemma2-9b-it : 15000 TPM
-            )
-            for line in raw.split("\n"):
-                line = line.strip().lstrip("-• ")
-                parts = [p.strip() for p in line.split("|")]
-                if len(parts) == 3 and all(parts):
-                    src, rel, tgt = parts
-                    title = batch[0].get("title", "")
-                    kag_graph["nodes"][src] = {"doc": title}
-                    kag_graph["nodes"][tgt] = {"doc": title}
-                    kag_graph["relations"][f"{src}||{rel}||{tgt}"] = True
-        except Exception:
-            pass   # on continue le batch suivant
+        # Essayer MODEL_EXTRACT puis MODEL_ANSWER en fallback
+        raw = ""
+        for attempt_model in [MODEL_EXTRACT, MODEL_ANSWER]:
+            result = llm(EXTRACT_SYS, combined, max_tokens=150, model=attempt_model)
+            if result and not result.startswith("ERREUR:"):
+                raw = result
+                break
+            print(f"[KAG] Batch {b_idx+1} modèle {attempt_model} échoué: {result[:80]}")
+
+        if not raw:
+            print(f"[KAG] Batch {b_idx+1} ignoré (tous les modèles ont échoué).")
+            continue
+
+        print(f"[KAG] Batch {b_idx+1} résultat brut: {repr(raw[:150])}")
+
+        # Parser les triplets
+        triplets_found = 0
+        for line in raw.split("\n"):
+            line = line.strip().lstrip("-•*·>0123456789.) ")
+            if not line or len(line) < 5:
+                continue
+            # Ignorer les lignes qui ne sont pas des triplets
+            if not "|" in line:
+                continue
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) == 3 and all(len(p) > 1 for p in parts):
+                src, rel, tgt = parts
+                # Filtrer les lignes d’en-tête du LLM
+                if any(bad in src.lower() for bad in ["format", "entity", "relation", "example", "note:", "doc"]):
+                    continue
+                doc_title = batch[0].get("title", "")
+                kag_graph["nodes"][src] = {"doc": doc_title}
+                kag_graph["nodes"][tgt] = {"doc": doc_title}
+                kag_graph["relations"][f"{src}||{rel}||{tgt}"] = True
+                triplets_found += 1
+
+        print(f"[KAG] Batch {b_idx+1} -> {triplets_found} triplets extraits")
+
+    print(f"[KAG] FINAL: {len(kag_graph['nodes'])} noeuds, {len(kag_graph['relations'])} relations")
 
 def build_kag_from_precomputed(results_path: str = None):
     """Charge un graphe KAG pré-calculé depuis results_kag.json (0 appel API)."""
