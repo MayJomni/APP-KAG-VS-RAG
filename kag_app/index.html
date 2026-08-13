@@ -309,86 +309,15 @@ tr:hover td{background:var(--card);}
     </div>
   </div>
 
-  <!-- Étape 1 : Charger les données -->
+
+  <!-- ── Étape 1 : Uploader vos documents ── -->
   <div class="section">
-    <div class="stitle">① Charger les données</div>
-    <div class="lbl">Nombre d'exemples HotpotQA</div>
-    <select class="sel" id="hq-n" style="margin-bottom:7px;">
-      <option value="3">3 exemples (~30 docs)</option>
-      <option value="5" selected>5 exemples (~50 docs)</option>
-      <option value="10">10 exemples (~100 docs)</option>
-    </select>
-    <button class="btn btn-red" id="load-btn" onclick="loadData()">
-      📦 Charger HotpotQA → RAG
-    </button>
-    <div class="pbar-wrap" id="load-pbw"><div class="pbar" id="load-pb"></div></div>
-    <div class="log" id="load-log"></div>
-  </div>
-
-  <!-- Étape 2 : Construire graphe KAG -->
-  <div class="section">
-    <div class="stitle">② Construire le graphe KAG</div>
-
-    <!-- Info rate limit -->
-    <div style="background:rgba(227,6,19,.08);border:1px solid rgba(227,6,19,.25);border-radius:7px;padding:8px 10px;margin-bottom:8px;font-size:9px;line-height:1.6;color:var(--t2);">
-      <div style="font-weight:700;color:var(--red);margin-bottom:3px;">⚠️ Rate Limit Groq — 6 000 TPM</div>
-      <div>Avant (lent) : 15 docs × 500 tok = <b style="color:var(--red)">7 500 tok/min</b> → erreur</div>
-      <div>Après (optimisé) : 5 batchs × 400 tok = <b style="color:var(--green)">2 000 tok/min</b> ✅</div>
-      <div style="margin-top:3px;color:var(--t3);">Extraction : gemma2-9b-it (15 000 TPM)</div>
-    </div>
-
-    <!-- Option 1 : Pré-calculé INSTANTANÉ -->
-    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin-bottom:4px;">⚡ Option 1 — Instantané (recommandé)</div>
-    <button class="btn btn-green" id="precomp-btn" onclick="loadPrecomputed()" style="margin-bottom:6px;">
-      ⚡ Charger KAG pré-calculé (0 API call)
-    </button>
-    <div style="font-size:9px;color:var(--t3);margin-bottom:10px;">← Charge <code>results_kag.json</code> en &lt;1s, sans quota</div>
-
-    <!-- Option 2 : Construction live -->
-    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:4px;">🔧 Option 2 — Construction live (2-3 min)</div>
-    <button class="btn btn-outline" id="kag-btn" onclick="buildKAG()" disabled>
-      🕸️ Construire graphe KAG via LLM
-    </button>
-    <div style="font-size:9px;color:var(--t3);margin-top:3px;">Format compact + batch 3 docs + gemma2-9b-it</div>
-    <div class="pbar-wrap" id="kag-pbw"><div class="pbar" id="kag-pb"></div></div>
-    <div class="log" id="kag-log"></div>
-  </div>
-
-  <!-- Étape 3 : Questions démo -->
-  <div class="section" style="flex:1;">
-    <div class="stitle">③ Questions de test</div>
-    <div class="lbl" style="margin-bottom:7px;color:var(--t3);">Cliquez pour remplir automatiquement ↓</div>
-    <div class="demo-list">
-      <div class="demo-q" onclick="useDemo(this)" data-q="Were Scott Derrickson and Ed Wood of the same nationality?" data-gt="yes">
-        <div class="tag multi">multi-saut</div><br>
-        Were Scott Derrickson and Ed Wood of the same nationality?
-        <div style="color:var(--green);font-size:8px;margin-top:3px;">✓ Réponse attendue : <b>yes</b></div>
-      </div>
-      <div class="demo-q" onclick="useDemo(this)" data-q="Are the Laleli Mosque and Esma Sultan Mansion in the same neighborhood?" data-gt="no">
-        <div class="tag multi">multi-saut</div><br>
-        Are the Laleli Mosque and Esma Sultan Mansion in the same neighborhood?
-        <div style="color:var(--green);font-size:8px;margin-top:3px;">✓ Réponse attendue : <b>no</b></div>
-      </div>
-      <div class="demo-q" onclick="useDemo(this)" data-q="What year was the director of film Pari born?" data-gt="1969">
-        <div class="tag">factuel</div><br>
-        What year was the director of film Pari born?
-        <div style="color:var(--green);font-size:8px;margin-top:3px;">✓ Réponse attendue : <b>1969</b></div>
-      </div>
-      <div class="demo-q" onclick="useDemo(this)" data-q="Who was the father of the producer of Titanic?" data-gt="">
-        <div class="tag multi">relationnel</div><br>
-        Who was the father of the producer of Titanic?
-      </div>
-    </div>
-  </div>
-
-  <!-- Étape 3 : Vos propres documents -->
-  <div class="section" style="border:1.5px dashed rgba(227,6,19,.35);">
-    <div class="stitle" style="color:var(--red);">③ Vos propres documents</div>
-    <div class="lbl" style="margin-bottom:7px;">Testez RAG et KAG sur vos données</div>
+    <div class="stitle">① Charger vos documents</div>
+    <div class="lbl" style="margin-bottom:7px;">Glissez vos fichiers ou cliquez pour parcourir</div>
 
     <!-- Drop zone -->
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-      <div style="font-size:24px;">📂</div>
+      <div style="font-size:26px;">📂</div>
       <div style="font-size:11px;font-weight:600;">Glissez un fichier ici</div>
       <div style="font-size:9px;color:var(--t3);">ou cliquez pour parcourir</div>
       <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;justify-content:center;">
@@ -400,27 +329,75 @@ tr:hover td{background:var(--card);}
     </div>
     <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md,.csv" multiple style="display:none" onchange="uploadDocs(this.files)">
 
-    <!-- Pipeline selector -->
-    <div style="display:flex;gap:5px;margin-top:7px;">
-      <label style="font-size:9px;color:var(--t3);display:flex;align-items:center;gap:4px;cursor:pointer;">
-        <input type="radio" name="up-pipe" value="rag" checked> RAG uniquement
-      </label>
-      <label style="font-size:9px;color:var(--t3);display:flex;align-items:center;gap:4px;cursor:pointer;">
-        <input type="radio" name="up-pipe" value="both"> RAG + KAG
-      </label>
-    </div>
-
-    <!-- Progress -->
+    <!-- Progress upload -->
     <div class="pbar-wrap" id="up-pbw"><div class="pbar" id="up-pb"></div></div>
     <div class="log" id="up-log"></div>
 
     <!-- Uploaded files list -->
     <div id="up-list"></div>
 
-    <!-- Reset button -->
-    <button class="btn" id="reset-btn" onclick="resetAll()" style="background:rgba(227,6,19,.1);border:1px solid rgba(227,6,19,.3);color:var(--red);margin-top:6px;font-size:10px;padding:6px;">
+    <!-- Reset -->
+    <button class="btn" id="reset-btn" onclick="resetAll()"
+      style="background:rgba(227,6,19,.1);border:1px solid rgba(227,6,19,.3);color:var(--red);margin-top:6px;font-size:10px;padding:6px;">
       🗑️ Vider tous les documents
     </button>
+  </div>
+
+  <!-- ── Étape 2 : Construire le graphe KAG ── -->
+  <div class="section">
+    <div class="stitle">② Construire le graphe KAG</div>
+    <div class="lbl" style="margin-bottom:6px;color:var(--t3);font-size:9px;">
+      Extrait les entités et relations de vos documents pour créer le graphe de connaissances.
+    </div>
+
+    <!-- Info -->
+    <div style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.25);border-radius:7px;padding:8px 10px;margin-bottom:8px;font-size:9px;line-height:1.6;color:var(--t2);">
+      <div style="font-weight:700;color:#a78bfa;margin-bottom:3px;">🕸️ Extraction LLM (gemma2-9b-it)</div>
+      <div>Analyse vos documents uploadés</div>
+      <div>Extrait : entités + relations via LLM</div>
+      <div style="color:var(--t3);margin-top:2px;">⏱️ Peut prendre 1-3 min (rate limit Groq)</div>
+    </div>
+
+    <button class="btn" id="kag-btn" onclick="buildKAG()" disabled
+      style="background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(227,6,19,.15));border:1px solid rgba(139,92,246,.4);color:#c4b5fd;font-weight:700;">
+      🕸️ Construire le graphe de connaissance
+    </button>
+    <div style="font-size:8px;color:var(--t3);margin-top:3px;text-align:center;">Activé après avoir uploadé au moins un fichier</div>
+
+    <div class="pbar-wrap" id="kag-pbw"><div class="pbar" id="kag-pb"></div></div>
+    <div class="log" id="kag-log"></div>
+  </div>
+
+  <!-- ── Étape 3 : Questions de test ── -->
+  <div class="section" style="flex:1;">
+    <div class="stitle">③ Questions de test</div>
+    <div class="lbl" style="margin-bottom:7px;color:var(--t3);">Cliquez pour remplir automatiquement ↓</div>
+    <div class="demo-list">
+      <div class="demo-q" onclick="useDemo(this)"
+           data-q="What is the main purpose of this document?"
+           data-gt="">
+        <div class="tag multi">résumé</div><br>
+        What is the main purpose of this document?
+      </div>
+      <div class="demo-q" onclick="useDemo(this)"
+           data-q="What are the technical requirements mentioned in the document?"
+           data-gt="">
+        <div class="tag">factuel</div><br>
+        What are the technical requirements mentioned in the document?
+      </div>
+      <div class="demo-q" onclick="useDemo(this)"
+           data-q="Who are the key stakeholders or organizations mentioned?"
+           data-gt="">
+        <div class="tag multi">relationnel</div><br>
+        Who are the key stakeholders or organizations mentioned?
+      </div>
+      <div class="demo-q" onclick="useDemo(this)"
+           data-q="What are the main goals and objectives described?"
+           data-gt="">
+        <div class="tag">factuel</div><br>
+        What are the main goals and objectives described?
+      </div>
+    </div>
   </div>
 
 </aside>
@@ -436,7 +413,8 @@ tr:hover td{background:var(--card);}
       <div class="welcome" id="welcome">
         <div class="wbig">Comparez <span class="rag">RAG</span> vs <span class="kag">KAG</span></div>
         <div class="wdesc">
-          Posez des questions sur les documents HotpotQA chargés.<br>
+          Uploadez vos propres documents (PDF, DOCX, TXT...) dans la sidebar.<br>
+          Construisez le graphe KAG, puis posez vos questions.<br>
           Voyez comment <b style="color:var(--blue)">RAG (recherche textuelle)</b> et
           <b style="color:var(--red)">KAG (graphe de connaissances)</b> répondent différemment.
         </div>
@@ -456,7 +434,7 @@ tr:hover td{background:var(--card);}
             <div style="font-size:9px;color:var(--t3);margin-top:7px;">✅ Bon pour: questions relationnelles, faits précis<br>⚠️ Risque: rate limit Groq ralentit la construction</div>
           </div>
         </div>
-        <div class="start-hint">← Chargez HotpotQA, choisissez une question démo, puis posez la question</div>
+        <div class="start-hint">← Uploadez un fichier, puis posez votre question</div>
       </div>
 
     </div>
@@ -509,7 +487,16 @@ tr:hover td{background:var(--card);}
         <canvas id="kag-canvas"></canvas>
         <div class="graph-empty" id="graph-empty">
           <div class="big">🕸️</div>
-          <p>Graphe KAG vide.<br>Chargez HotpotQA puis cliquez<br><b style="color:var(--red)">② Construire le graphe KAG</b><br>dans la sidebar.</p>
+          <p>Graphe KAG vide.<br>
+          Uploadez un fichier (①)<br>
+          puis cliquez <b style="color:#a78bfa">② Construire le graphe</b><br>
+          dans la sidebar.</p>
+          <button class="btn" style="width:auto;margin:8px auto 0;padding:6px 14px;font-size:10px;
+            background:linear-gradient(135deg,rgba(139,92,246,.25),rgba(227,6,19,.15));
+            border:1px solid rgba(139,92,246,.4);color:#c4b5fd;"
+            onclick="nav('chat');scrollTo(0,0);document.getElementById('kag-btn').scrollIntoView({behavior:'smooth'})">
+            🕸️ Aller construire le graphe
+          </button>
         </div>
       </div>
 
@@ -1244,25 +1231,46 @@ async function buildKAG(){
   const log = document.getElementById('kag-log');
   const pbw = document.getElementById('kag-pbw');
   const pb  = document.getElementById('kag-pb');
-  btn.disabled=true; btn.textContent='⏳ Construction... (lent)';
-  pbw.style.display='block'; log.style.display='block';
-  log.textContent = 'Extraction entités + relations via LLM...\n⚠️ Peut prendre 1-3 min (rate limit Groq)\n';
-  let p=0; const iv=setInterval(()=>{p=Math.min(p+0.5,88);pb.style.width=p+'%';},1200);
-  try{
-    const r = await fetch('/load-kag',{method:'POST'});
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Construction du graphe...';
+  pbw.style.display = 'block';
+  log.style.display = 'block';
+  log.textContent = '🔍 Extraction entités + relations via LLM (gemma2-9b-it)...\n'
+                  + '⚠️ Peut prendre 1-3 min (rate limit Groq)...\n';
+
+  let p = 0;
+  const iv = setInterval(() => { p = Math.min(p + 0.5, 88); pb.style.width = p + '%'; }, 1200);
+
+  try {
+    // Appel au nouvel endpoint : construit depuis les docs déjà en mémoire
+    const r = await fetch('/kag/build', { method: 'POST' });
     const d = await r.json();
-    clearInterval(iv); pb.style.width='100%';
-    if(d.error){ log.textContent+=`❌ ${d.error}\n`; toast('err',d.error); }
-    else{
-      log.textContent += `✅ Graphe KAG: ${d.kag_nodes} nœuds, ${d.kag_relations} relations\n`;
+    clearInterval(iv);
+    pb.style.width = '100%';
+
+    if (d.error || d.detail) {
+      const msg = d.error || d.detail;
+      log.textContent += `❌ ${msg}\n`;
+      toast('err', msg);
+    } else {
+      log.textContent += `✅ Graphe construit : ${d.kag_nodes} nœuds, ${d.kag_relations} relations\n`;
+      log.textContent += `🕸️ Cliquez "Graphe KAG" pour visualiser !\n`;
       await fetchStats();
+      // Naviguer vers le graphe et l'afficher
+      nav('graph');
       await refreshGraph();
-      toast('ok', `KAG prêt — ${d.kag_nodes} nœuds, ${d.kag_relations} relations`);
-      log.textContent += `🕸️ Cliquez "Graphe KAG" dans le menu pour visualiser!\n`;
+      toast('ok', `Graphe KAG prêt — ${d.kag_nodes} nœuds, ${d.kag_relations} relations`);
     }
-  }catch(e){clearInterval(iv);log.textContent+=`❌ ${e.message}\n`;toast('err',e.message);}
-  btn.disabled=false; btn.textContent='🔄 Reconstruire graphe KAG';
-  setTimeout(()=>{pbw.style.display='none';pb.style.width='0%';},2000);
+  } catch(e) {
+    clearInterval(iv);
+    log.textContent += `❌ ${e.message}\n`;
+    toast('err', e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔄 Reconstruire le graphe';
+  setTimeout(() => { pb.style.width = '0%'; pbw.style.display = 'none'; }, 2000);
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -1971,19 +1979,17 @@ async function uploadDocs(files){
   const pbw  = document.getElementById('up-pbw');
   const pb   = document.getElementById('up-pb');
   const list = document.getElementById('up-list');
-  const buildKag = document.querySelector('input[name="up-pipe"]:checked')?.value === 'both';
 
   pbw.style.display='block'; log.style.display='block';
   pb.style.width='10%';
   const names = Array.from(files).map(f=>f.name).join(', ');
-  log.textContent = `📤 Envoi de ${files.length} fichier(s) : ${names}\n⏳ Indexation RAG${buildKag?' + construction KAG':''}...\n`;
+  log.textContent = `📤 Envoi de ${files.length} fichier(s) : ${names}\n⏳ Indexation RAG en cours...\n`;
 
-  // Construire FormData avec tous les fichiers
+  // Upload RAG uniquement — KAG sera construit manuellement via le bouton
   const fd = new FormData();
   for(const f of files) fd.append('files', f);
-  fd.append('build_kag', buildKag ? 'true' : 'false');
+  fd.append('build_kag', 'false');   // toujours RAG seul ici
 
-  // Animation barre de progression
   let p = 10;
   const iv = setInterval(()=>{p=Math.min(p+5,88); pb.style.width=p+'%';}, 300);
 
@@ -2000,12 +2006,11 @@ async function uploadDocs(files){
 
     const d = await resp.json();
 
-    // Log résumé
     log.textContent += `✅ ${d.new_chunks} chunks indexés dans RAG\n`;
-    if(d.kag_nodes > 0) log.textContent += `🕸️  KAG: ${d.kag_nodes} nœuds · ${d.kag_rels} relations\n`;
-    log.textContent += `📦 Total corpus: ${d.total_docs} passages\n`;
+    log.textContent += `📦 Total corpus : ${d.total_docs} passages\n`;
+    log.textContent += `↓ Cliquez "🕸️ Construire le graphe de connaissance" pour activer KAG\n`;
 
-    // Afficher chaque fichier dans la liste
+    // Afficher chaque fichier
     if(d.files && d.files.length){
       d.files.forEach(f => {
         const ext = (f.file.split('.').pop()||'').toLowerCase();
@@ -2028,10 +2033,13 @@ async function uploadDocs(files){
       });
     }
 
-    // Activer boutons
+    // Activer le bouton "Construire le graphe KAG"
     const kagBtn = document.getElementById('kag-btn');
-    if(kagBtn) kagBtn.disabled = false;
-    toast('ok', `${files.length} fichier(s) indexé(s) — ${d.new_chunks} chunks RAG`);
+    if(kagBtn) {
+      kagBtn.disabled = false;
+      kagBtn.style.animation = 'pulse 1s ease-in-out 3';
+    }
+    toast('ok', `${files.length} fichier(s) indexé(s) dans RAG — ${d.new_chunks} chunks`);
     await fetchStats();
 
   } catch(e) {

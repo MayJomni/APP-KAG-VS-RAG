@@ -1103,11 +1103,35 @@ async def load_hotpotqa(req: Optional[LoadHotpotReq] = None,
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.post("/load-kag")
-async def load_kag(n_docs: int = 8):
+@app.post("/kag/build")
+async def kag_build():
+    """Construit le graphe KAG depuis les documents uploadés par l'utilisateur.
+    Endpoint principal appelé par le bouton 'Construire le graphe de connaissance'.
+    """
     if not documents:
         return JSONResponse(
-            {"error": "Chargez d'abord les documents via /load-hotpotqa"},
+            {"error": "Aucun document chargé. Uploadez d'abord un fichier via la sidebar."},
+            status_code=400
+        )
+    # Utiliser TOUS les documents chargés (pas de limite arbitraire)
+    docs_to_use = documents  # tous les chunks uploadés
+    build_kag_from_docs(docs_to_use)
+    return {
+        "status":        "ok",
+        "source":        "documents uploadés par l'utilisateur",
+        "kag_nodes":     len(kag_graph["nodes"]),
+        "kag_relations": len(kag_graph["relations"]),
+        "docs_used":     len(docs_to_use),
+        "message":       f"Graphe construit depuis {len(docs_to_use)} chunks : "
+                         f"{len(kag_graph['nodes'])} nœuds, {len(kag_graph['relations'])} relations"
+    }
+
+@app.post("/load-kag")
+async def load_kag(n_docs: int = 8):
+    """Ancien endpoint — redirige vers /kag/build pour compatibilité."""
+    if not documents:
+        return JSONResponse(
+            {"error": "Aucun document chargé. Uploadez d'abord un fichier."},
             status_code=400)
     build_kag_from_docs(documents[:n_docs])
     return {
