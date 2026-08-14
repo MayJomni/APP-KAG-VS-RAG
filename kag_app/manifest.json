@@ -1,0 +1,22 @@
+﻿{
+  "name": "RAG vs KAG — Ooredoo AI Lab",
+  "short_name": "RAG·KAG",
+  "description": "Comparez RAG et KAG sur vos documents",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0f",
+  "theme_color": "#e30613",
+  "lang": "fr",
+  "icons": [
+    { "src": "/static/icon-512.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any maskable" },
+    { "src": "/static/icon-512.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any" }
+  ],
+  "screenshots": [
+    { "src": "/static/splash.jpg", "sizes": "1080x1920", "type": "image/jpeg", "form_factor": "narrow" }
+  ],
+  "shortcuts": [
+    { "name": "Comparer RAG vs KAG", "url": "/?mode=both", "icons": [{"src":"/static/icon-512.jpg","sizes":"192x192"}] },
+    { "name": "Graphe KAG", "url": "/?panel=graph", "icons": [{"src":"/static/icon-512.jpg","sizes":"192x192"}] }
+  ]
+}

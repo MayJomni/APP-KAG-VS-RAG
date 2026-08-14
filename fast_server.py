@@ -64,6 +64,11 @@ def llm(system_prompt: str, user_prompt: str,
 app = FastAPI(title="RAG vs KAG")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# Servir les fichiers statiques PWA (manifest.json, sw.js, icons)
+_static_dir = Path(__file__).parent / "kag_app"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
 # ── State ──────────────────────────────────────────────────────────────────────
 rag_index      = None
 documents      = []
@@ -485,18 +490,19 @@ def rag_answer(question):
         prompt  = f"QUESTION: {question}"
         context = "[Connaissance générale — aucun document spécifique chargé]"
     else:
+        # Nom du (premier) fichier source pour contextualiser le prompt
+        doc_name = uploaded_files[0]["name"] if uploaded_files else "the uploaded document"
         sys_p = (
-            "You are a precise document QA assistant. "
-            "The CONTEXT below IS the exact content extracted from the uploaded document. "
-            "It is real text from the file — you CAN and MUST use it directly. "
-            "NEVER say the document is unavailable or that you cannot access it. "
-            "Answer the question by reading and quoting from the CONTEXT. "
-            "Write a DETAILED answer of at least 3 complete sentences (minimum 200 characters). "
-            "Include key facts and relevant details found in the text. "
-            "If the question asks to extract characters or text, quote the relevant passage verbatim. "
-            "Do NOT truncate. If context is partial, complete with your general knowledge."
+            f"You are a precise document QA assistant analyzing '{doc_name}'. "
+            "The CONTEXT below is the EXACT TEXT extracted from this document. "
+            "It is real content — you MUST use it directly to answer. "
+            "NEVER say the document is unavailable, inaccessible, or that you cannot read it. "
+            "Answer the question by citing facts from the CONTEXT. "
+            "Write a DETAILED, COMPREHENSIVE answer (minimum 200 characters, at least 3 sentences). "
+            "Structure your answer clearly. Quote key passages verbatim when relevant. "
+            "If context is partial, supplement with related general knowledge but prioritize the document."
         )
-        prompt = f"QUESTION: {question}\n\nCONTEXT (content of the uploaded document):\n{context}"
+        prompt = f"QUESTION: {question}\n\nCONTEXT FROM '{doc_name}':\n{context}"
 
     answer = llm(sys_p, prompt, max_tokens=400)
 
@@ -544,9 +550,19 @@ def rag_answer(question):
 # Résultat : ~2000 tokens pour 15 docs (~30s) au lieu de 7500 (>60s + erreurs)
 
 EXTRACT_SYS = (
-    "Extract factual triplets from text. "
-    "Format: entity|relation|entity — one per line, max 5 lines. "
-    "Use short labels. No JSON, no explanation."
+    "You are a knowledge graph extractor. Read the document text and extract factual triplets.\n"
+    "Rules:\n"
+    "- Output ONLY lines in format: Subject|Predicate|Object\n"
+    "- Use short, precise labels (2-5 words max per element)\n"
+    "- Extract 3 to 8 triplets per passage\n"
+    "- No JSON, no numbering, no explanation, no headers\n"
+    "- Examples of valid triplets:\n"
+    "  Ooredoo Tunisia|is|telecom company\n"
+    "  Contract|requires|NDA signature\n"
+    "  Article 5|states|payment in 30 days\n"
+    "  Author|published|research paper 2023\n"
+    "  Product A|costs|200 USD\n"
+    "- Extract from ANY document type: legal, technical, academic, commercial"
 )
 
 def build_kag_from_docs(docs):
@@ -556,7 +572,7 @@ def build_kag_from_docs(docs):
     global kag_graph
     kag_graph = {"nodes": {}, "relations": {}}
     batch_size = 3
-    max_docs   = 20   # jusqu'à 20 chunks
+    max_docs   = 50   # jusqu'à 50 chunks pour les gros documents
 
     doc_list = docs[:max_docs]
     if not doc_list:
@@ -688,18 +704,21 @@ def kag_answer(question):
         else:
             context = "[Aucun document chargé — réponse basée sur connaissance générale]"
 
+    # Nom du document source pour contextualiser
+    doc_name = uploaded_files[0]["name"] if uploaded_files else "the uploaded document"
     sys_p = (
-        "You are a knowledge graph QA expert. "
-        "The FACTS or DOCUMENT TEXT below is extracted from the uploaded document. "
-        "It is REAL content from the file — you CAN and MUST use it. "
-        "NEVER say the document is unavailable or that you cannot access it. "
-        "Answer the question using the facts/text provided. "
-        "Write a DETAILED, STRUCTURED answer of at least 3 sentences (minimum 200 characters). "
-        "Explain each relevant fact and its significance. "
-        "If the question asks to extract text or characters, quote directly from the facts. "
-        "Do NOT say 'I don't know'. Complete any gaps using your general knowledge."
+        f"You are a knowledge graph QA expert analyzing '{doc_name}'. "
+        "The FACTS below are triplets extracted from this document's knowledge graph. "
+        "Each fact is in format: Entity —[relation]→ Entity. "
+        "These are REAL facts from the file — use them to answer precisely. "
+        "NEVER say the document is unavailable or inaccessible. "
+        "Answer the question using the facts provided. "
+        "Write a DETAILED, STRUCTURED answer (minimum 200 characters, at least 3 sentences). "
+        "Explain what each fact means in context. "
+        "If the question asks to extract text or quote content, use the facts as direct evidence. "
+        "Fill any gaps with general knowledge while clearly citing the document facts."
     )
-    prompt = f"QUESTION: {question}\n\nFACTS FROM DOCUMENT:\n{context}"
+    prompt = f"QUESTION: {question}\n\nKNOWLEDGE GRAPH FACTS FROM '{doc_name}':\n{context}"
     answer = llm(sys_p, prompt, max_tokens=400)
 
     # Supprimer les hallucinations de refus
