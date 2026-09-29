@@ -1,0 +1,31 @@
+﻿REQUEST FOR PROPOSAL - ENTERPRISE SOFTWARE SOLUTION
+
+SECTION 1 - TECHNICAL REQUIREMENTS
+1. The system must support a minimum of 10,000 concurrent users.
+2. Response time shall not exceed 2 seconds for all standard operations.
+3. The solution must be compatible with Windows Server 2019 and Linux Ubuntu 20.04.
+4. The vendor shall provide a REST API with full OpenAPI 3.0 documentation.
+5. Data encryption must use AES-256 for data at rest and TLS 1.3 for data in transit.
+6. The system should support multi-factor authentication (MFA).
+7. Backup and recovery must be completed within 4 hours (RTO) and 1 hour (RPO).
+
+SECTION 2 - LEGAL AND COMPLIANCE REQUIREMENTS
+1. The selected vendor must sign a Non-Disclosure Agreement (NDA) within 5 business days.
+2. The solution must comply with GDPR and local data protection laws.
+3. Vendor must provide proof of ISO 27001 certification.
+4. All source code must be held in escrow with a licensed third party.
+5. The vendor shall carry a minimum liability insurance of USD 5 million.
+
+SECTION 3 - FINANCIAL REQUIREMENTS
+1. The vendor must provide a fixed-price proposal with no hidden costs.
+2. Payment terms shall be Net 30 days from invoice receipt.
+3. Vendor should provide a 3-year total cost of ownership (TCO) analysis.
+4. Discount structure for multi-year contracts is required.
+5. The vendor must accept bank guarantee as financial security.
+
+SECTION 4 - ADMINISTRATIVE REQUIREMENTS
+1. Vendor must have at least 5 years of experience in similar projects.
+2. The project manager must hold a PMP certification.
+3. Vendor should provide 24/7 technical support with a 4-hour SLA.
+4. Monthly progress reports must be submitted to the client.
+5. The vendor must assign a dedicated account manager for this project.

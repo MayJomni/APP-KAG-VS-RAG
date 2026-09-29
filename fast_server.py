@@ -2,6 +2,16 @@
 fast_server.py — Serveur RAG vs KAG (version corrigée)
 """
 import os, sys, time, json, logging, re, string, io
+import io as _io
+import difflib
+
+# Évaluateurs avancés (Ragas + DeepEval)
+try:
+    from evaluation.ragas_evaluator import RagasEvaluator
+    from evaluation.deepeval_evaluator import DeepEvalEvaluator
+    ADVANCED_EVAL = True
+except ImportError:
+    ADVANCED_EVAL = False
 
 # Force UTF-8 stdout/stderr sur Windows (évite UnicodeEncodeError avec cp1252)
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
@@ -41,8 +51,13 @@ logging.basicConfig(level=logging.WARNING)
 
 GROQ_KEY      = os.getenv("GROQ_API_KEY", "")
 client        = Groq(api_key=GROQ_KEY)
-MODEL_ANSWER  = "llama-3.1-8b-instant"   # réponses QA — 6 000 TPM
-MODEL_EXTRACT = "gemma2-9b-it"           # extraction KAG — 15 000 TPM
+
+# Évaluateurs avancés
+ragas_evaluator = RagasEvaluator() if ADVANCED_EVAL else None
+deepeval_evaluator = DeepEvalEvaluator() if ADVANCED_EVAL else None
+
+MODEL_ANSWER  = "openai/gpt-oss-20b"    # réponses QA — rapide
+MODEL_EXTRACT = "openai/gpt-oss-20b"    # extraction KAG — rapide
 
 def llm(system_prompt: str, user_prompt: str,
         max_tokens: int = 150, model: str = None) -> str:
@@ -75,7 +90,9 @@ documents      = []
 kag_graph      = {"nodes": {}, "relations": {}}
 run_log        = []   # {pipeline, question, answer, latency_ms}
 routing_log    = []   # {question, type, routed_to, reason, confidence}
-uploaded_files = []   # [{name, size_kb, chunks, status}]
+uploaded_files     = []   # [{name, size_kb, chunks, status}]
+uploaded_raw_texts = []   # [{title, text}] texte brut KAG
+compliance_criteria = []  # [{id, category, criterion, mandatory, source, chunk_id, compliance_status}]
 
 # ── File Parsing ───────────────────────────────────────────────────────────────
 def _parse_uploaded_file(filename: str, content: bytes) -> str:
@@ -124,6 +141,34 @@ def _chunk_text(text: str, filename: str, chunk_size: int = 400,
     return chunks
 
 # ── Routing Agent ──────────────────────────────────────────────────────────────
+
+def _chunk_by_clause(title, text, min_words=6):
+    import re as _r
+    chunks = []
+    lines = text.splitlines()
+    cur = ""
+    pat = _r.compile(
+        r"^(\d+[\.)\-]\s|[a-zA-Z][\.)\-]\s|[*\-\u2022\u2013]\s"
+        r"|[A-Z]{2,}\s*:|Section\s+\d|Article\s+\d|Clause\s+\d|Requirement\s+\d|REQ-\d)",
+        _r.IGNORECASE)
+    def flush(b):
+        b = b.strip()
+        if len(b.split()) >= min_words:
+            chunks.append({"title": title, "text": b, "id": f"{title}_cl{len(chunks)}"})
+    for line in lines:
+        s = line.strip()
+        if not s: flush(cur); cur = ""
+        elif pat.match(s) and cur: flush(cur); cur = s
+        else: cur = (cur + " " + s).strip() if cur else s
+    flush(cur)
+    if len(chunks) < 3:
+        chunks = [{"title": title, "text": p.strip(), "id": f"{title}_p{i}"}
+                  for i, p in enumerate(_r.split(r"\n\s*\n", text)) if len(p.split()) >= min_words]
+    if len(chunks) < 2:
+        w = text.split()
+        chunks = [{"title": title, "text": " ".join(w[i:i+80]), "id": f"{title}_w{i}"}
+                  for i in range(0, len(w), 80) if len(w[i:i+80]) >= min_words]
+    return chunks
 # Signaux linguistiques pour la classification de questions
 
 MULTIHOP_SIGNALS  = {"same nationality", "also", "were they", "did they",
@@ -544,91 +589,207 @@ def rag_answer(question):
 
 # ── KAG ───────────────────────────────────────────────────────────────────────
 # SOLUTION RATE LIMIT :
-# 1) Format compact pipe (src|rel|tgt) → max 80 tokens/output  (-75%)
-# 2) Batch de 3 docs par appel LLM      → 3x moins d'appels
-# 3) Modèle gemma2-9b-it (15000 TPM)   → 2.5x plus de quota
-# Résultat : ~2000 tokens pour 15 docs (~30s) au lieu de 7500 (>60s + erreurs)
+# 1) batch_size=1  → 1 chunk par appel LLM, attention maximale du modèle
+# 2) max_tokens=3000 → sortie exhaustive sans troncature
+# 3) time.sleep(2) entre batches → respecte le free-tier Groq (6000 TPM)
+# 4) Déduplication difflib ≥ 85% → supprime les doublons sémantiques
 
 EXTRACT_SYS = (
-    "You are a knowledge graph extractor. Read the document text and extract factual triplets.\n"
-    "Rules:\n"
-    "- Output ONLY lines in format: Subject|Predicate|Object\n"
-    "- Use short, precise labels (2-5 words max per element)\n"
-    "- Extract 3 to 8 triplets per passage\n"
-    "- No JSON, no numbering, no explanation, no headers\n"
-    "- Examples of valid triplets:\n"
-    "  Ooredoo Tunisia|is|telecom company\n"
-    "  Contract|requires|NDA signature\n"
-    "  Article 5|states|payment in 30 days\n"
-    "  Author|published|research paper 2023\n"
-    "  Product A|costs|200 USD\n"
-    "- Extract from ANY document type: legal, technical, academic, commercial"
+    "You are a requirements extraction expert analyzing an RFP (Request for Proposal) document.\n"
+    "Read the text and extract EVERY distinct requirement or criterion mentioned, "
+    "no matter how small. Do NOT summarize or merge multiple requirements into one line.\n"
+    "Each bullet point, each sentence stating an obligation, capability, or constraint "
+    "is a SEPARATE criterion.\n"
+    "Output ONLY lines in this exact format:\n"
+    "Category|Criterion|Mandatory\n"
+    "Where:\n"
+    "- Category is one of: Functional, Technical, Operational, Security, Infrastructure, "
+    "Administrative, Financial\n"
+    "- Criterion is the requirement itself, in a short precise sentence (max 20 words)\n"
+    "- Mandatory is Yes or No (Yes if the text uses 'must', 'shall', 'required'; "
+    "No if it uses 'should', 'recommended', 'optional')\n"
+    "No JSON, no numbering, no explanation, no headers, no introduction.\n"
+    "Example:\n"
+    "Technical|Solution must produce unified XML file for each bill|Yes\n"
+    "Functional|Vendor should support future bill design changes|No\n"
+    "Security|Vendor certified ISO 27001 is recommended|No"
 )
 
+
+def _is_near_duplicate(text_a: str, text_b: str, threshold: float = 0.85) -> bool:
+    """Retourne True si text_a et text_b ont une similarité >= threshold (difflib)."""
+    ratio = difflib.SequenceMatcher(None,
+                                    text_a.lower().strip(),
+                                    text_b.lower().strip()).ratio()
+    return ratio >= threshold
+
+
 def build_kag_from_docs(docs):
-    """Construit le graphe KAG depuis les documents chargés.
-    Inclut logging, fallback model, et gestion d'erreur correcte.
+    """Extrait les criteres de conformite RFP depuis les chunks. Format: Category|Criterion|Mandatory.
+
+    Changements v2:
+    - batch_size=1 : un chunk par appel LLM (attention maximale)
+    - Texte complet du chunk (sans troncature [:400])
+    - max_docs dynamique : traite TOUS les chunks disponibles
+    - max_tokens=3000 : sortie exhaustive
+    - time.sleep(2) entre chaque batch : rate-limit Groq free-tier
+    - Déduplication difflib >= 85% après extraction
     """
-    global kag_graph
-    kag_graph = {"nodes": {}, "relations": {}}
-    batch_size = 3
-    max_docs   = 50   # jusqu'à 50 chunks pour les gros documents
+    global kag_graph, compliance_criteria
+    kag_graph           = {"nodes": {}, "relations": {}}
+    compliance_criteria = []
 
-    doc_list = docs[:max_docs]
-    if not doc_list:
-        print("[KAG] Aucun document à traiter.")
-        return
+    # ── Choix des chunks source ───────────────────────────────────────────────
+    clause_chunks = []
+    if uploaded_raw_texts:
+        for src in uploaded_raw_texts:
+            clause_chunks.extend(_chunk_by_clause(src["title"], src["text"]))
+        print(f"[KAG] Clause-chunking: {len(uploaded_raw_texts)} fichier(s) -> {len(clause_chunks)} clauses")
+    else:
+        clause_chunks = list(docs)
+        print(f"[KAG] Fallback docs: {len(clause_chunks)} chunks")
 
-    batches = [doc_list[i:i+batch_size] for i in range(0, len(doc_list), batch_size)]
-    print(f"[KAG] Début extraction : {len(doc_list)} docs, {len(batches)} batches")
+    if not clause_chunks:
+        print("[KAG] Aucun chunk disponible."); return
 
-    for b_idx, batch in enumerate(batches):
-        combined = ""
-        for idx, doc in enumerate(batch):
-            title = doc.get("title", f"doc_{idx}")
-            text  = doc.get("text",  "")[:400]
-            combined += f"[DOC{idx+1}: {title}]\n{text}\n\n"
+    # ── Paramètres dynamiques ─────────────────────────────────────────────────
+    # batch_size=1 : un chunk à la fois pour une extraction exhaustive
+    bsz = 1
+    # max_docs : traite TOUS les chunks (pas de plafond fixe)
+    max_docs = len(clause_chunks)
+    dl       = clause_chunks[:max_docs]
+    batches  = [dl[i:i+bsz] for i in range(0, len(dl), bsz)]
+    print(f"[KAG] {len(dl)} clauses | batch_size={bsz} | {len(batches)} appels LLM | max_tokens=3000")
 
-        # Essayer MODEL_EXTRACT puis MODEL_ANSWER en fallback
+    raw_criteria_texts = []  # textes bruts pour déduplication
+    dup_count          = 0
+
+    for bi, batch in enumerate(batches):
+        # ── Construction du prompt utilisateur ────────────────────────────────
+        doc      = batch[0]
+        doc_title = doc.get("title", "doc")
+        # Texte complet du chunk, sans troncature
+        doc_text  = doc.get("text", "")
+        combined  = f"[CLAUSE {bi+1} - {doc_title}]\n{doc_text}\n"
+
+        # ── Appel LLM avec fallback gemma2 -> llama ───────────────────────────
         raw = ""
-        for attempt_model in [MODEL_EXTRACT, MODEL_ANSWER]:
-            result = llm(EXTRACT_SYS, combined, max_tokens=150, model=attempt_model)
-            if result and not result.startswith("ERREUR:"):
-                raw = result
-                break
-            print(f"[KAG] Batch {b_idx+1} modèle {attempt_model} échoué: {result[:80]}")
+        for mdl in [MODEL_EXTRACT, MODEL_ANSWER]:
+            r = llm(EXTRACT_SYS, combined, max_tokens=3000, model=mdl)
+            if r and not r.startswith("ERREUR:"):
+                raw = r; break
+            print(f"[KAG] Batch {bi+1} échec {mdl}: {r[:80]}")
 
         if not raw:
-            print(f"[KAG] Batch {b_idx+1} ignoré (tous les modèles ont échoué).")
+            print(f"[KAG] Batch {bi+1}/{len(batches)} ignoré (pas de réponse LLM)")
+            # Pause avant le prochain appel même en cas d'échec
+            if bi < len(batches) - 1:
+                time.sleep(2)
             continue
 
-        print(f"[KAG] Batch {b_idx+1} résultat brut: {repr(raw[:150])}")
+        print(f"[KAG] Batch {bi+1}/{len(batches)} [{doc_title[:40]}]: {repr(raw[:120])}")
 
-        # Parser les triplets
-        triplets_found = 0
+        # ── Parsing ligne par ligne ───────────────────────────────────────────
+        found = 0
+        chunk_id = doc.get("id", f"chunk_{bi}")
+
         for line in raw.split("\n"):
-            line = line.strip().lstrip("-•*·>0123456789.) ")
-            if not line or len(line) < 5:
+            line = line.strip().lstrip("-*>.0123456789.) ")
+            if not line or "|" not in line or len(line) < 8:
                 continue
-            # Ignorer les lignes qui ne sont pas des triplets
-            if not "|" in line:
+
+            parts = [x.strip() for x in line.split("|")]
+            if len(parts) < 3:
                 continue
-            parts = [p.strip() for p in line.split("|")]
-            if len(parts) == 3 and all(len(p) > 1 for p in parts):
-                src, rel, tgt = parts
-                # Filtrer les lignes d’en-tête du LLM
-                if any(bad in src.lower() for bad in ["format", "entity", "relation", "example", "note:", "doc"]):
-                    continue
-                doc_title = batch[0].get("title", "")
-                kag_graph["nodes"][src] = {"doc": doc_title}
-                kag_graph["nodes"][tgt] = {"doc": doc_title}
-                kag_graph["relations"][f"{src}||{rel}||{tgt}"] = True
-                triplets_found += 1
 
-        print(f"[KAG] Batch {b_idx+1} -> {triplets_found} triplets extraits")
+            # Parsing Category|Criterion|Mandatory
+            cat           = parts[0]   # Category
+            criterion     = parts[1]   # Criterion
+            mandatory_raw = parts[2].upper() if len(parts) > 2 else "?"
 
-    print(f"[KAG] FINAL: {len(kag_graph['nodes'])} noeuds, {len(kag_graph['relations'])} relations")
+            # Normalisation Mandatory → Yes/No
+            if mandatory_raw in ("YES", "OUI"):
+                mandatory = "Yes"
+            elif mandatory_raw in ("NO", "NON"):
+                mandatory = "No"
+            else:
+                mandatory = "Yes" if any(w in mandatory_raw.lower()
+                                         for w in ["yes", "oui", "must", "shall", "required", "mandatory"]
+                                         ) else "No"
 
+            # Normalisation Category vers valeurs autorisées
+            VALID_CATS = {"Functional", "Technical", "Operational", "Security",
+                          "Infrastructure", "Administrative", "Financial"}
+            cat_normalized = next(
+                (c for c in VALID_CATS if c.lower() == cat.lower()), "Functional"
+            )
+
+            # Filtre les lignes parasites (exemples du prompt, en-têtes...)
+            if any(b in criterion.lower() for b in [
+                "criterion", "category", "mandatory", "example",
+                "format", "note:", "header", "where:", "output only",
+                "shall respond within 2 seconds",   # exemple du prompt
+                "unified xml file",                 # exemple du prompt
+                "future bill design",               # exemple du prompt
+                "iso 27001 is recommended"          # exemple du prompt
+            ]):
+                continue
+            if not criterion or len(criterion) < 5:
+                continue
+
+            # ── Déduplication difflib >= 85% ──────────────────────────────────
+            is_dup = False
+            for existing_text in raw_criteria_texts:
+                if _is_near_duplicate(criterion, existing_text, threshold=0.85):
+                    is_dup = True
+                    dup_count += 1
+                    logging.info(
+                        f"[KAG] Doublon supprimé (>85%): '{criterion[:60]}'"
+                        f" ≈ '{existing_text[:60]}'"
+                    )
+                    break
+            if is_dup:
+                continue
+
+            raw_criteria_texts.append(criterion)
+
+            # ── Stockage kag_graph (rétrocompatibilité) ───────────────────────
+            kag_graph["nodes"][criterion] = {
+                "doc": doc_title,
+                "categorie": cat_normalized,
+                "obligatoire": "OUI" if mandatory == "Yes" else "NON"
+            }
+            kag_graph["nodes"][cat_normalized] = {"doc": doc_title, "type": "category"}
+            kag_graph["relations"][f"{criterion}||{cat_normalized}||{mandatory}"] = {
+                "obligatoire": "OUI" if mandatory == "Yes" else "NON",
+                "description": criterion,
+                "doc": doc_title
+            }
+
+            # ── Stockage compliance_criteria ──────────────────────────────────
+            compliance_criteria.append({
+                "id":                f"CR-{len(compliance_criteria)+1:03d}",
+                "category":          cat_normalized,
+                "criterion":         criterion,
+                "mandatory":         mandatory,
+                "source":            doc_title,
+                "chunk_id":          chunk_id,
+                "compliance_status": "To Be Assessed"
+            })
+            found += 1
+
+        print(f"[KAG] Batch {bi+1}/{len(batches)} -> {found} critère(s) extrait(s)")
+
+        # ── Pause rate-limit Groq (sauf après le dernier batch) ──────────────
+        if bi < len(batches) - 1:
+            time.sleep(2)
+
+    print(
+        f"[KAG] FINAL: {len(kag_graph['nodes'])} nœuds | "
+        f"{len(kag_graph['relations'])} relations | "
+        f"{len(compliance_criteria)} critères uniques | "
+        f"{dup_count} doublon(s) supprimé(s)"
+    )
 def build_kag_from_precomputed(results_path: str = None):
     """Charge un graphe KAG pré-calculé depuis results_kag.json (0 appel API)."""
     global kag_graph
@@ -660,23 +821,31 @@ def build_kag_from_precomputed(results_path: str = None):
 
 
 def kag_search(question):
-    """Cherche les triplets pertinents. Fallback : retourne tous les triplets si aucun match."""
+    """Cherche exigences. Compatible bool(True) et dict meta."""
     q_words = [w for w in question.lower().split() if len(w) > 3]
     relevant = []
-    for key in kag_graph["relations"]:
-        src, rel, tgt = key.split("||")
-        if any(w in src.lower() or w in tgt.lower() or w in rel.lower() for w in q_words):
-            relevant.append({"source": src, "relation": rel, "target": tgt,
-                             "label": f"{src} —[{rel}]→ {tgt}"})
-
-    # Fallback : si aucun match par mots-clés, retourner tous les triplets disponibles
+    for key, meta in kag_graph["relations"].items():
+        parts = key.split("||")
+        if len(parts) != 3: continue
+        src, rel, tgt = parts
+        desc = meta.get("description", tgt) if isinstance(meta, dict) else tgt
+        if not any(w in f"{src} {rel} {tgt} {desc}".lower() for w in q_words): continue
+        obl = meta.get("obligatoire","?") if isinstance(meta, dict) else "?"
+        badge = "[OUI]" if obl=="OUI" else ("[NON]" if obl=="NON" else "")
+        relevant.append({"source":src,"relation":rel,"target":tgt,
+                         "description":desc,"obligatoire":obl,
+                         "label":f"{src} --[{rel}]--> {desc} {badge}".strip()})
     if not relevant and kag_graph["relations"]:
-        all_keys = list(kag_graph["relations"].keys())[:20]
-        for key in all_keys:
-            src, rel, tgt = key.split("||")
-            relevant.append({"source": src, "relation": rel, "target": tgt,
-                             "label": f"{src} —[{rel}]→ {tgt}"})
-    return relevant[:20]
+        for key, meta in list(kag_graph["relations"].items())[:30]:
+            parts = key.split("||")
+            if len(parts) != 3: continue
+            src, rel, tgt = parts
+            desc = meta.get("description", tgt) if isinstance(meta, dict) else tgt
+            obl = meta.get("obligatoire","?") if isinstance(meta, dict) else "?"
+            relevant.append({"source":src,"relation":rel,"target":tgt,
+                             "description":desc,"obligatoire":obl,
+                             "label":f"{src} --[{rel}]--> {desc}"})
+    return relevant[:30]
 
 def kag_answer(question):
     t0 = time.time()
@@ -763,7 +932,19 @@ async def ui():
     html_file = Path(__file__).parent / "kag_app" / "index.html"
     if html_file.exists():
         return HTMLResponse(html_file.read_text(encoding="utf-8"))
-    return HTMLResponse("<h2>Interface non trouvée. Utilisez /docs</h2>")
+    return HTMLResponse("<h2>Interface non trouvee. Utilisez /docs</h2>")
+
+@app.get("/mobile", response_class=HTMLResponse)
+async def mobile_ui():
+    html_file = Path(__file__).parent / "kag_app" / "mobile.html"
+    if html_file.exists():
+        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+    return HTMLResponse("<h2>Interface mobile non trouvee.</h2>")
+
+@app.get("/compliance/criteria")
+async def compliance_criteria_list():
+    """Retourne la liste brute des criteres pour le mobile dashboard."""
+    return compliance_criteria
 
 # ── API ───────────────────────────────────────────────────────────────────────
 @app.get("/health")
@@ -798,7 +979,7 @@ async def upload_documents(
 ):
     """Upload de fichiers utilisateur (PDF, DOCX, TXT, MD, CSV).
     Indexe automatiquement dans RAG (BM25) et construit le graphe KAG."""
-    global rag_index, documents, uploaded_files
+    global rag_index, documents, uploaded_files, uploaded_raw_texts
 
     ALLOWED = {".pdf", ".docx", ".txt", ".md", ".csv"}
     results = []
@@ -822,8 +1003,9 @@ async def upload_documents(
 
         chunks = _chunk_text(text, file.filename)
         new_chunks.extend(chunks)
+        uploaded_raw_texts.append({"title": file.filename, "text": text})
 
-        # Méta dans la liste des fichiers uploadés
+        # Meta dans la liste des fichiers uploades
         uploaded_files.append({
             "name":     file.filename,
             "size_kb":  size_kb,
@@ -858,15 +1040,325 @@ async def upload_documents(
         "files":      results
     }
 
+
+# ── Ingestion directe Excel de requirements (sans LLM) ────────────────────────
+
+def ingest_requirements_excel(content: bytes, filename: str) -> dict:
+    """
+    Lit un fichier Excel de requirements Ooredoo et ajoute chaque ligne
+    directement dans compliance_criteria, SANS appel LLM.
+
+    Auto-detection des colonnes par mots-cles dans les en-tetes.
+    Champ 'source_type' = 'Excel (direct)' pour distinguer du pipeline LLM.
+
+    Retourne un dict avec le nombre de criteres ingeres et les colonnes mappees.
+    """
+    global compliance_criteria
+
+    ext = Path(filename).suffix.lower()
+
+    # ── Lecture du fichier ────────────────────────────────────────────────────
+    rows = []     # liste de dicts {header: valeur}
+    headers = []
+
+    try:
+        if ext in (".xlsx", ".xlsm"):
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+            ws = wb.active
+            raw_rows = list(ws.iter_rows(values_only=True))
+            if not raw_rows:
+                return {"error": "Feuille Excel vide", "ingested": 0}
+            headers = [str(h).strip() if h is not None else f"col_{i}"
+                       for i, h in enumerate(raw_rows[0])]
+            for row in raw_rows[1:]:
+                if all(v is None for v in row):
+                    continue
+                rows.append(dict(zip(headers, [str(v).strip() if v is not None else "" for v in row])))
+
+        elif ext == ".xls":
+            try:
+                import xlrd
+                wb = xlrd.open_workbook(file_contents=content)
+                ws = wb.sheet_by_index(0)
+                headers = [str(ws.cell_value(0, c)).strip() for c in range(ws.ncols)]
+                for r in range(1, ws.nrows):
+                    row = {headers[c]: str(ws.cell_value(r, c)).strip() for c in range(ws.ncols)}
+                    if any(v for v in row.values()):
+                        rows.append(row)
+            except ImportError:
+                return {"error": "xlrd non installe — pip install xlrd pour lire .xls", "ingested": 0}
+        else:
+            return {"error": f"Format non supporte pour ingestion directe : {ext}", "ingested": 0}
+
+    except Exception as e:
+        return {"error": f"Erreur de lecture Excel : {e}", "ingested": 0}
+
+    if not rows:
+        return {"error": "Aucune ligne de donnees trouvee", "ingested": 0}
+
+    # ── Auto-detection des colonnes par mots-cles ────────────────────────────
+    VALID_CATS = {"Functional", "Technical", "Operational",
+                  "Security", "Infrastructure", "Administrative", "Financial"}
+
+    def _find_col(headers, *keywords):
+        """Retourne le premier header dont le nom contient l'un des keywords."""
+        for kw in keywords:
+            for h in headers:
+                if kw.lower() in h.lower():
+                    return h
+        return None
+
+    col_criterion = _find_col(headers, "requirement", "criterion", "description",
+                              "exigence", "critere", "specification", "text", "wording")
+    col_category  = _find_col(headers, "category", "categorie", "type", "area",
+                              "domain", "domaine", "fonction", "functional area")
+    col_mandatory = _find_col(headers, "mandatory", "obligatoire", "priority",
+                              "priorite", "required", "compliance", "must")
+    col_id        = _find_col(headers, "id", "ref", "no.", "num", "req_id", "req id")
+    col_source    = _find_col(headers, "source", "section", "chapter", "chapitre", "ref doc")
+
+    mapping = {
+        "criterion": col_criterion or headers[0],
+        "category":  col_category,
+        "mandatory": col_mandatory,
+        "id_col":    col_id,
+        "source":    col_source,
+    }
+
+    # ── Ingestion ligne par ligne ─────────────────────────────────────────────
+    ingested = 0
+    skipped  = 0
+
+    for row in rows:
+        criterion = row.get(mapping["criterion"], "").strip()
+        if not criterion or len(criterion) < 4:
+            skipped += 1
+            continue
+
+        # Category
+        raw_cat = row.get(mapping["category"] or "", "").strip() if mapping["category"] else ""
+        cat_norm = next((c for c in VALID_CATS if c.lower() == raw_cat.lower()), None)
+        if not cat_norm:
+            cat_norm = next(
+                (c for c in VALID_CATS if c.lower() in raw_cat.lower()), "Functional"
+            )
+
+        # Mandatory
+        raw_mand = row.get(mapping["mandatory"] or "", "").strip().upper() if mapping["mandatory"] else ""
+        if raw_mand in ("YES", "OUI", "MANDATORY", "OBLIGATOIRE", "MUST", "SHALL", "M", "1", "TRUE"):
+            mandatory = "Yes"
+        elif raw_mand in ("NO", "NON", "OPTIONAL", "OPTIONNEL", "SHOULD", "O", "0", "FALSE"):
+            mandatory = "No"
+        else:
+            mandatory = "Yes"  # defaut : obligatoire
+
+        # ID externe (conserve pour tracabilite)
+        ext_id = row.get(mapping["id_col"] or "", "").strip() if mapping["id_col"] else ""
+        # Source interne au fichier Excel (section, chapitre...)
+        int_source = row.get(mapping["source"] or "", "").strip() if mapping["source"] else ""
+
+        compliance_criteria.append({
+            "id":                f"CR-{len(compliance_criteria)+1:03d}",
+            "category":          cat_norm,
+            "criterion":         criterion,
+            "mandatory":         mandatory,
+            "source":            filename,
+            "chunk_id":          ext_id or int_source or f"row_{ingested+1}",
+            "compliance_status": "To Be Assessed",
+            "source_type":       "Excel (direct)",
+            "ext_id":            ext_id,
+        })
+        ingested += 1
+
+    return {
+        "ingested":      ingested,
+        "skipped":       skipped,
+        "total_rows":    len(rows),
+        "headers_found": headers,
+        "column_mapping": mapping,
+        "filename":      filename,
+    }
+
+
+@app.post("/upload-requirements-excel")
+async def upload_requirements_excel(files: List[UploadFile] = File(...)):
+    """
+    Ingere directement un fichier Excel de requirements (xls / xlsx) dans
+    compliance_criteria, SANS appel LLM. Chaque ligne = un critere.
+
+    Utile pour les fichiers de requirements deja structures (ex: Ooredoo
+    'OT Bill Generation Solution Requirement v1.xls').
+
+    Format attendu : colonnes detectees automatiquement par mots-cles.
+    Tous les formats : .xls (xlrd requis), .xlsx, .xlsm.
+    """
+    global compliance_criteria
+    all_results = []
+
+    for file in files:
+        ext = Path(file.filename).suffix.lower()
+        if ext not in (".xls", ".xlsx", ".xlsm"):
+            all_results.append({
+                "file": file.filename, "status": "error",
+                "message": f"Format non supporte : {ext}. Utilisez .xls, .xlsx ou .xlsm."
+            })
+            continue
+
+        content = await file.read()
+        result  = ingest_requirements_excel(content, file.filename)
+
+        if "error" in result:
+            all_results.append({"file": file.filename, "status": "error",
+                                 "message": result["error"]})
+        else:
+            all_results.append({
+                "file":           file.filename,
+                "status":         "ok",
+                "ingested":       result["ingested"],
+                "skipped":        result["skipped"],
+                "total_rows":     result["total_rows"],
+                "column_mapping": result["column_mapping"],
+            })
+
+    return {
+        "status":              "ok",
+        "total_criteria":      len(compliance_criteria),
+        "excel_direct_count":  sum(1 for c in compliance_criteria if c.get("source_type") == "Excel (direct)"),
+        "llm_extracted_count": sum(1 for c in compliance_criteria if c.get("source_type") != "Excel (direct)"),
+        "files":               all_results,
+    }
+
+
 @app.delete("/upload/clear")
 async def clear_uploads():
     """Réinitialise tous les documents uploadés, l'index RAG et le graphe KAG."""
-    global rag_index, documents, kag_graph, uploaded_files
-    documents      = []
-    uploaded_files = []
-    rag_index      = None
-    kag_graph      = {"nodes": {}, "relations": {}}
+    global rag_index, documents, kag_graph, uploaded_files, uploaded_raw_texts, compliance_criteria
+    documents           = []
+    uploaded_files      = []
+    uploaded_raw_texts  = []
+    compliance_criteria = []
+    rag_index           = None
+    kag_graph           = {"nodes": {}, "relations": {}}
     return {"status": "ok", "message": "Tous les documents et le graphe ont été réinitialisés"}
+
+
+
+# ── Compliance Matrix Endpoints ────────────────────────────────────────────────
+
+@app.get("/compliance/list")
+async def compliance_list(
+    category: str = Query(None, description="Filtrer par categorie"),
+    mandatory: str = Query(None, description="Yes ou No"),
+    limit: int = Query(500, description="Nombre max de criteres")
+):
+    """Liste les criteres de conformite extraits. Filtrage par category et mandatory."""
+    global compliance_criteria
+    results = compliance_criteria
+    if category:
+        results = [c for c in results if c["category"].lower() == category.lower()]
+    if mandatory:
+        results = [c for c in results if c["mandatory"].lower() == mandatory.lower()]
+    return {
+        "total":            len(compliance_criteria),
+        "filtered":         len(results),
+        "criteria":         results[:limit],
+        "categories":       list({c["category"] for c in compliance_criteria}),
+        "mandatory_count":  sum(1 for c in compliance_criteria if c["mandatory"] == "Yes"),
+        "optional_count":   sum(1 for c in compliance_criteria if c["mandatory"] == "No"),
+    }
+
+
+@app.get("/compliance/stats")
+async def compliance_stats():
+    """Statistiques sur les criteres extraits par categorie."""
+    global compliance_criteria
+    by_cat = {}
+    for c in compliance_criteria:
+        by_cat.setdefault(c["category"], {"total": 0, "mandatory": 0, "optional": 0})
+        by_cat[c["category"]]["total"] += 1
+        if c["mandatory"] == "Yes":
+            by_cat[c["category"]]["mandatory"] += 1
+        else:
+            by_cat[c["category"]]["optional"] += 1
+    return {
+        "total_criteria":  len(compliance_criteria),
+        "mandatory_total": sum(1 for c in compliance_criteria if c["mandatory"] == "Yes"),
+        "optional_total":  sum(1 for c in compliance_criteria if c["mandatory"] == "No"),
+        "by_category":     by_cat,
+        "sources":         list({c["source"] for c in compliance_criteria}),
+        "kag_nodes":       len(kag_graph["nodes"]),
+        "kag_relations":   len(kag_graph["relations"])
+    }
+
+
+@app.get("/compliance/export")
+async def compliance_export(fmt: str = Query("csv", description="Format: csv ou excel")):
+    """Exporte la Compliance Matrix.
+    CSV  : colonnes ID|Categorie|Critere|Obligatoire|Source|Chunk|Statut de Conformite
+    Excel: meme colonnes avec mise en forme (vert=Yes, orange=No)
+    """
+    global compliance_criteria
+    if not compliance_criteria:
+        raise HTTPException(status_code=404,
+            detail="Aucun critere extrait. Uploadez un document RFP d abord.")
+
+    COLS    = ["id","category","criterion","mandatory","source","chunk_id","compliance_status"]
+    HDRS_FR = ["ID","Categorie","Critere","Obligatoire","Source","Chunk","Statut de Conformite"]
+
+    if fmt.lower() in ("excel", "xlsx"):
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Compliance Matrix"
+
+            # Header
+            fill_hdr = PatternFill("solid", fgColor="1F3A5F")
+            font_hdr = Font(bold=True, color="FFFFFF")
+            for ci, h in enumerate(HDRS_FR, 1):
+                cell = ws.cell(row=1, column=ci, value=h)
+                cell.fill = fill_hdr; cell.font = font_hdr
+                cell.alignment = Alignment(horizontal="center")
+
+            # Rows
+            fill_yes = PatternFill("solid", fgColor="C6EFCE")
+            fill_no  = PatternFill("solid", fgColor="FFEB9C")
+            font_yes = Font(color="276221", bold=True)
+            font_no  = Font(color="9C6500")
+            for ri, crit in enumerate(compliance_criteria, 2):
+                for ci, key in enumerate(COLS, 1):
+                    ws.cell(row=ri, column=ci, value=crit.get(key, ""))
+                mc = ws.cell(row=ri, column=4)
+                if crit.get("mandatory") == "Yes":
+                    mc.fill = fill_yes; mc.font = font_yes
+                else:
+                    mc.fill = fill_no;  mc.font = font_no
+
+            for col, w in zip("ABCDEFG", [12, 20, 60, 14, 30, 26, 30]):
+                ws.column_dimensions[col].width = w
+
+            buf = _io.BytesIO()
+            wb.save(buf); buf.seek(0)
+            return StreamingResponse(buf,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition":"attachment; filename=compliance_matrix.xlsx"})
+        except ImportError:
+            pass   # fallback CSV
+
+    # CSV (defaut, BOM pour Excel FR)
+    buf = _io.StringIO()
+    import csv as _csv
+    writer = _csv.DictWriter(buf, fieldnames=COLS, extrasaction="ignore")
+    writer.writerow(dict(zip(COLS, HDRS_FR)))
+    for crit in compliance_criteria:
+        writer.writerow(crit)
+    buf.seek(0)
+    return StreamingResponse(
+        _io.BytesIO(buf.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={"Content-Disposition":"attachment; filename=compliance_matrix.csv"})
 
 
 @app.get("/mlops/stats")
@@ -967,6 +1459,35 @@ async def compare(req: CompareReq):
         "kag": {**kag, "em": kag_em, "f1": kag_f1},
         "total_ms": round((time.time()-t0)*1000)
     }
+    # Métriques avancées (si disponibles)
+    if gt and ragas_evaluator and ragas_evaluator.available:
+        try:
+            rag_ragas = ragas_evaluator.evaluate(
+                [req.question], [rag["answer"]], [[rag.get("context","")]],
+                [gt], "RAG"
+            )
+            kag_ragas = ragas_evaluator.evaluate(
+                [req.question], [kag["answer"]], [[kag.get("context","")]],
+                [gt], "KAG"
+            )
+            result["rag"]["ragas"] = rag_ragas
+            result["kag"]["ragas"] = kag_ragas
+        except Exception:
+            pass
+    if gt and deepeval_evaluator and deepeval_evaluator.available:
+        try:
+            rag_de = deepeval_evaluator.evaluate(
+                [req.question], [rag["answer"]], [[rag.get("context","")]],
+                [gt], "RAG"
+            )
+            kag_de = deepeval_evaluator.evaluate(
+                [req.question], [kag["answer"]], [[kag.get("context","")]],
+                [gt], "KAG"
+            )
+            result["rag"]["deepeval"] = rag_de
+            result["kag"]["deepeval"] = kag_de
+        except Exception:
+            pass
     run_log.append({
         "pipeline": "COMPARE", "question": req.question,
         "answer": f"RAG:{rag['answer']} | KAG:{kag['answer']}",
@@ -1004,6 +1525,100 @@ async def evaluate(req: EvalReq):
                         for q,p,g,e,f in zip(req.questions,preds,
                                              req.ground_truths,ems,f1s)]
         }
+    return results
+
+class AdvancedEvalReq(BaseModel):
+    questions: List[str]
+    ground_truths: List[str]
+    pipeline: str = "both"  # "rag", "kag", "both"
+
+@app.post("/evaluate/advanced")
+async def evaluate_advanced(req: AdvancedEvalReq):
+    """Évaluation avancée avec Ragas + DeepEval (métriques LLM-based)."""
+    results = {}
+    
+    if req.pipeline in ("rag", "both"):
+        rag_answers_list = []
+        rag_contexts_list = []
+        for q in req.questions:
+            r = rag_answer(q)
+            rag_answers_list.append(r["answer"])
+            rag_contexts_list.append([r.get("context", "")])
+        
+        # Métriques de base
+        ems = [exact_match(p, g) for p, g in zip(rag_answers_list, req.ground_truths)]
+        f1s = [token_f1(p, g) for p, g in zip(rag_answers_list, req.ground_truths)]
+        
+        results["rag"] = {
+            "basic": {
+                "avg_exact_match": round(sum(ems)/len(ems), 4),
+                "avg_token_f1": round(sum(f1s)/len(f1s), 4),
+                "n_correct": sum(1 for e in ems if e == 1.0),
+            }
+        }
+        
+        # Ragas
+        if ragas_evaluator and ragas_evaluator.available:
+            results["rag"]["ragas"] = ragas_evaluator.evaluate(
+                questions=req.questions,
+                answers=rag_answers_list,
+                contexts=rag_contexts_list,
+                ground_truths=req.ground_truths,
+                pipeline_name="RAG"
+            )
+        
+        # DeepEval
+        if deepeval_evaluator and deepeval_evaluator.available:
+            results["rag"]["deepeval"] = deepeval_evaluator.evaluate(
+                questions=req.questions,
+                answers=rag_answers_list,
+                contexts=rag_contexts_list,
+                ground_truths=req.ground_truths,
+                pipeline_name="RAG"
+            )
+    
+    if req.pipeline in ("kag", "both"):
+        kag_answers_list = []
+        kag_contexts_list = []
+        for q in req.questions:
+            r = kag_answer(q)
+            kag_answers_list.append(r["answer"])
+            kag_contexts_list.append([r.get("context", "")])
+        
+        ems = [exact_match(p, g) for p, g in zip(kag_answers_list, req.ground_truths)]
+        f1s = [token_f1(p, g) for p, g in zip(kag_answers_list, req.ground_truths)]
+        
+        results["kag"] = {
+            "basic": {
+                "avg_exact_match": round(sum(ems)/len(ems), 4),
+                "avg_token_f1": round(sum(f1s)/len(f1s), 4),
+                "n_correct": sum(1 for e in ems if e == 1.0),
+            }
+        }
+        
+        if ragas_evaluator and ragas_evaluator.available:
+            results["kag"]["ragas"] = ragas_evaluator.evaluate(
+                questions=req.questions,
+                answers=kag_answers_list,
+                contexts=kag_contexts_list,
+                ground_truths=req.ground_truths,
+                pipeline_name="KAG"
+            )
+        
+        if deepeval_evaluator and deepeval_evaluator.available:
+            results["kag"]["deepeval"] = deepeval_evaluator.evaluate(
+                questions=req.questions,
+                answers=kag_answers_list,
+                contexts=kag_contexts_list,
+                ground_truths=req.ground_truths,
+                pipeline_name="KAG"
+            )
+    
+    results["available_frameworks"] = {
+        "ragas": ragas_evaluator.available if ragas_evaluator else False,
+        "deepeval": deepeval_evaluator.available if deepeval_evaluator else False,
+    }
+    
     return results
 
 # ── Smart Agent endpoints ──────────────────────────────────────────────────────
@@ -1222,6 +1837,10 @@ async def info():
         "models": {
             "answers":   MODEL_ANSWER  + " (6 000 TPM Groq free)",
             "extraction": MODEL_EXTRACT + " (15 000 TPM Groq free)"
+        },
+        "eval_frameworks": {
+            "ragas": ragas_evaluator.available if ragas_evaluator else False,
+            "deepeval": deepeval_evaluator.available if deepeval_evaluator else False
         },
         "rate_limit_solutions": [
             "1. Format compact pipe (src|rel|tgt) : -75% output tokens",

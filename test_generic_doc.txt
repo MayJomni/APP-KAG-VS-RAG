@@ -1,0 +1,26 @@
+﻿Machine Learning in Healthcare: A Comprehensive Review
+
+Abstract:
+This paper reviews the application of machine learning (ML) techniques in healthcare diagnostics.
+We analyze 150 studies published between 2018 and 2024.
+
+Introduction:
+Machine learning has revolutionized medical diagnosis. Deep learning models achieve 94.2% accuracy
+in cancer detection. Neural networks outperform radiologists in chest X-ray analysis by 12%.
+
+Key Findings:
+- Convolutional Neural Networks (CNN) detect diabetic retinopathy with 97% sensitivity.
+- Random Forest models predict heart failure 30 days before clinical symptoms.
+- Natural Language Processing (NLP) extracts patient data from 10,000 medical records per hour.
+- Reinforcement learning optimizes drug dosing in ICU patients, reducing mortality by 18%.
+
+Models Used:
+ResNet-50 was trained on 500,000 chest X-rays from 3 hospitals.
+BERT model fine-tuned on 2 million clinical notes achieves F1-score of 0.91.
+XGBoost classifier uses 47 patient features to predict readmission risk.
+
+Authors: Dr. Sarah Johnson (MIT), Dr. Ahmed Karim (Stanford), Dr. Liu Wei (Oxford)
+Published: Journal of Medical AI, Volume 12, Issue 3, March 2024
+DOI: 10.1234/jmai.2024.001
+
+Funding: NIH Grant R01-HL-123456, European Research Council Grant 987654

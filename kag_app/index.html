@@ -1384,6 +1384,33 @@ function addCompare(d, gt){
         <div class="cscore-item" style="margin-left:10px;">Token F1 : <b>${(f1*100).toFixed(0)}%</b></div>
        </div>` : '';
 
+  // Ragas / DeepEval advanced metrics display
+  const advancedHTML = (pipeData) => {
+    let html = '';
+    const ragas = pipeData?.ragas;
+    const deepe = pipeData?.deepeval;
+    if(ragas && !ragas.error){
+      html += `<div style="margin-top:6px;padding:6px 8px;background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.15);border-radius:6px;">
+        <div style="font-size:9px;font-weight:700;color:#38bdf8;margin-bottom:3px;">📊 Ragas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:9px;">
+          <span>Faithfulness: <b>${(ragas.faithfulness*100).toFixed(0)}%</b></span>
+          <span>Relevancy: <b>${(ragas.answer_relevancy*100).toFixed(0)}%</b></span>
+          <span>Ctx Precision: <b>${(ragas.context_precision*100).toFixed(0)}%</b></span>
+          <span>Ctx Recall: <b>${(ragas.context_recall*100).toFixed(0)}%</b></span>
+        </div></div>`;
+    }
+    if(deepe && !deepe.error){
+      html += `<div style="margin-top:4px;padding:6px 8px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:6px;">
+        <div style="font-size:9px;font-weight:700;color:#fbbf24;margin-bottom:3px;">🧪 DeepEval</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:9px;">
+          <span>Correctness: <b>${(deepe.correctness*100).toFixed(0)}%</b></span>
+          <span>Anti-Hallucination: <b>${(deepe.anti_hallucination*100).toFixed(0)}%</b></span>
+          <span>Ctx Relevancy: <b>${(deepe.contextual_relevancy*100).toFixed(0)}%</b></span>
+        </div></div>`;
+    }
+    return html;
+  };
+
   const ragSrcs = (d.rag?.sources||[]).slice(0,3);
   const kagTrip = (d.kag?.triplets||[]).slice(0,5);
 
@@ -1400,6 +1427,7 @@ function addCompare(d, gt){
         </div>
         <div class="canswer">${esc(d.rag?.answer||'—')}</div>
         ${scoreHTML(ragEM,ragF1)}
+        ${advancedHTML(d.rag)}
         ${ragSrcs.length ? `<a class="ctx-toggle" onclick="toggleCtx('${ragCtxId}')">📄 Voir les ${ragSrcs.length} documents utilisés</a>
         <div class="ctx-box" id="${ragCtxId}">${ragSrcs.map(s=>`<b>[${esc(s.title)}]</b><br>${esc(s.snippet)}`).join('<hr style="border-color:var(--bdr);margin:5px 0;">')}</div>` : '<div style="font-size:9px;color:var(--t3);margin-top:6px;">Aucun document récupéré — chargez d\'abord les données</div>'}
       </div>
@@ -1410,6 +1438,7 @@ function addCompare(d, gt){
         </div>
         <div class="canswer">${esc(d.kag?.answer||'—')}</div>
         ${scoreHTML(kagEM,kagF1)}
+        ${advancedHTML(d.kag)}
         ${kagTrip.length ? `<a class="ctx-toggle" onclick="toggleCtx('${kagCtxId}')">🕸️ Voir les ${kagTrip.length} triplets utilisés</a>
         <div class="ctx-box" id="${kagCtxId}">${kagTrip.map(t=>`<span style="color:var(--red)">${esc(t.source)}</span> —[<span style="color:var(--blue)">${esc(t.relation)}</span>]→ <span style="color:var(--green)">${esc(t.target)}</span>`).join('<br>')}</div>` : '<div style="font-size:9px;color:var(--t3);margin-top:6px;">Graphe KAG vide — construisez le graphe (étape ②)</div>'}
       </div>
@@ -1492,6 +1521,21 @@ function buildMatrix(rl, kl, rEM, kEM, rF1, kF1){
     { name:'📚 Passage long texte',
       rv:'Fort ✅', kv:'Faible ❌', winner:'rag',
       detail:'RAG gère mieux les documents longs avec fenêtres de passage' },
+    { name:'📊 Faithfulness (Ragas)',
+      rv:'Élevée ✅', kv:'Moyen ⚠️', winner:'rag',
+      detail:'RAG cite directement le texte source — moins d\'hallucination' },
+    { name:'🎯 Answer Relevancy (Ragas)',
+      rv:'Fort ✅', kv:'Fort ✅', winner:'tie',
+      detail:'Les deux répondent de manière pertinente à la question posée' },
+    { name:'🧪 Correctness (DeepEval)',
+      rv:'Fort ✅', kv:'Fort ✅', winner:'tie',
+      detail:'GEval juge la correction sémantique vs ground truth' },
+    { name:'🛡️ Anti-Hallucination (DeepEval)',
+      rv:'Fort ✅', kv:'Moyen ⚠️', winner:'rag',
+      detail:'RAG s\'appuie sur le texte récupéré — KAG peut halluciner hors-graphe' },
+    { name:'🔍 Ctx Relevancy (DeepEval)',
+      rv:'Fort ✅', kv:'Fort ✅', winner:'tie',
+      detail:'Pertinence des documents/triplets retournés par rapport à la question' },
   ];
 
   mb.innerHTML = rows.map(r=>`

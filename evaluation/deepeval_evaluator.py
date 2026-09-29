@@ -18,7 +18,6 @@ try:
         HallucinationMetric,
         ContextualRelevancyMetric,
     )
-    from deepeval.models.gpt_model import GPTModel
     from deepeval.test_case import LLMTestCase, LLMTestCaseParams
     DEEPEVAL_AVAILABLE = True
 except ImportError as e:

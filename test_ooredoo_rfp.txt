@@ -1,0 +1,174 @@
+﻿Ooredoo Tunisia
+Bill Generation Solution
+Request for Proposal
+
+Abstract: The purpose of this RFP is to solicit responses from identified vendors to provide a bill generation
+solution based on the requirements identified in this document.
+All information in connection with this RFP and project is strictly confidential.
+
+1.0 About Ooredoo Tunisia
+Ooredoo Tunisia is a private telecommunications company in Tunisia. Set up with capital of 330
+million Tunisian dinars, it was founded on 11 May 2002. Ooredoo Tunisia is part of the Ooredoo Group.
+It is the largest operator in Tunisia.
+Ooredoo Tunisia has also won, for the fourth consecutive year, the Best Customer Service Telecommunications Sector award.
+
+2.0 Definition and Scope
+Bill Generation solution is a core component in Ooredoo Tunisia billing system. The role of this entity is to
+produce customer bills in PDF format.
+Facing the new customer requirements, Ooredoo Tunisia targets to renew the bill generation solution.
+
+2.1 The Bill design
+The current bill design did not change since years. For customer satisfaction, new design is requested.
+
+2.2 The Technical solution
+The current bill generation solution has several limitations:
+- Slowness of document generation process
+- Complexity of design changes implementation: Any change requires a hardcoded update.
+
+3.0 Goals and Objectives
+Ooredoo requires an industrialized IT solution (standard, preconfigured, fully automated, scalable and reliable solution).
+1. Functional area:
+- Modify the bill design to fit the business requirements
+- Have a rich and complete bill by supporting any future bill design changes
+- Faster time to market by providing full automation and full integration capabilities
+
+2. Technical Area:
+- Provide graphical interactive interface for bill design customization
+- Produce unified XML file for each bill
+- Insert bill details in Data Base tables (needed for statistics)
+- Produce bill in PDF Format
+- Send bills by email
+- Produce and send call details in CSV Format
+- Create a single PDF bill for several invoices (for splitted large accounts)
+- Provide web application for proposed solution management
+
+3.1 Main Pain Points
+1. Technical limitation and lack of flexibilities for extensions and evolutions of bill design
+2. Performance issues:
+   a. PDF bill generation very slow (20k bills per Hour)
+   b. High usage of server resources (CPU/Memory)
+3. Splitted Large account bill generation
+
+5.0 Responses
+5.1 Respondent Deliverables
+All respondents shall send one electronic copy of their responses to Ooredoo Tunisia Sourcing System (IVALUA Sourcing).
+
+5.3 Compliance Matrix
+The Compliance matrix defines the functional/non-functional requirements for equipment/software to be offered.
+Compliance Statement Meaning:
+- Fully compliant: The offered solution is fully compliant with the requirement
+- Partially compliant: The offered solution does not fully comply
+- Not compliant: The offered solution does not comply with the requirements.
+
+5.4 Technical Vendor Selection and Evaluation Criteria
+Ooredoo Tunisia technical evaluation committee has the right to exclude from tender evaluation if:
+1. Not in Compliance with eligibility criteria
+2. Not in Compliance with references criteria
+3. Solution is based on old or obsolete technologies
+4. Solution deemed to be not satisfying the envisaged business and technological values
+
+5.5 Licensing Model
+The vendor shall provide: solution licensing model and scheme, estimated license cost, annual maintenance and technical support model.
+Proposed release must be supported at least for 3 years.
+
+6.0 IT architecture description
+6.1 High level IT landscape
+BGH is the current bill generation tool used in Ooredoo Tunisia project.
+
+6.2 Application portfolio
+Domain: Billing
+- Bill Calculation: Ericsson BSCSIX R3 (BCH)
+- BSCS DB: Oracle DB Release 11.1.0.7
+- Bill generation: BGH
+
+6.3 Target Architecture
+The target architecture of proposed solution must be on disaster recovery mode (Active-Active or Active-Passive)
+based on Ooredoo infrastructure standards.
+
+7.0 Bill generation Requirements
+7.1 Functional requirements: outlined in the attached file 2022_DSA_RFP Invoice Revamp.pdf
+7.2 Technical requirements: outlined in the attached file OT Bill Generation Solution Requirement v1.xls
+
+8.0 IT Infrastructure
+Selected Solution shall follow the Ooredoo Tunisia Process. Ooredoo will provide all the required hardware.
+
+9.0 RFP Schedule
+It is the bidder responsibility to deliver their proposal on or before the deadline. Proposals received after the time specified will be considered late.
+
+10.0 Bidder Company Background
+Bidder should provide a brief overview and history of the company, including company name and address, contact name, years in business.
+
+11.0 Warranties
+- It has full power and authority to execute and perform its obligations under this RFP
+- The Services will be provided in accordance with Good Industry Practice
+- Personnel turnover limited to 5% in the first Contract Year, 10% in the second Contract Year
+
+12.0 Financial Performance
+Bidder should provide a financial performance summary including annual report, profit growth history for the past three years.
+
+Eligibility criteria:
+- Justify the legal, technical and financial capacities required
+- Having an existence of at least 5 years
+- Are certified ISO 27001 is recommended
+
+13.0 Costs
+Budgetary Pricing Estimate:
+- Budgetary quote to implement the bill generation solution
+- Detailed itemized pricing model with all applicable fees
+- Offer must include 3 years maintenance support
+- Annual maintenance costs beyond the 3 years warranties for the 4th and 5th year should be identified as separate charges
+
+14.0 Implementation
+Overview: Provide a brief overview of professional and integration services while specifying:
+- The schedule of the transition process and the hand over
+- The project team roles and responsibilities
+- Skills transfer and hand over to Ooredoo Tunisia teams
+
+15.0 Training Services
+- Training should be provided for both engineering and support technical teams. At least 8 persons.
+- Training and training materials must preferably be in French.
+- Qualified and experienced instructors must give the lectures.
+
+16.0 Support and Maintenance
+Service Level Agreements:
+- Emergency/Critical: Initial Response 1h, Restoration-workaround 1 WD, Final Solution 3 WD
+- Major: Initial Response 1h, Workaround 1 WD, Final Solution 5 WD
+- Medium: Initial Response 1h, Workaround 1 WD, Final Solution 10 WD
+- Minor: Initial Response 1H, Final Solution 2 weeks
+
+17.0 References
+Bidders responding to this RFP must have experience in Telecommunication sector.
+Provide a list of two reference accounts for similar projects in Telecom operators during the last 10 years.
+
+18.0 Glossary
+BSCS: Ooredoo Billing System
+B2B: Enterprise and Professional clients
+B2C: Residential clients
+
+19.0 Human Resources Requirements
+19.1 Required Position:
+- Network and Billing Systems Engineer: Senior engineer responsible for integration with BSCS/BCH, Oracle DB. Minimum 5 years experience. Mandatory.
+
+19.2 Minimum Experience:
+- Network Engineering: 5 years
+- Telecom Billing Systems: 3 years
+- Enterprise Software Integration: 3 years
+
+19.3 Required Certifications:
+- CCNA (Cisco Certified Network Associate): Mandatory
+- CCNP (Cisco Certified Network Professional): Mandatory
+- ISO 27001 Lead Implementer/Auditor: Recommended
+- ITIL Foundation: Recommended
+
+19.4 Required Technical Skills:
+- Cisco IOS/IOS-XE: Expert level
+- BGP (Border Gateway Protocol): Advanced
+- OSPF (Open Shortest Path First): Advanced
+- Oracle DB/SQL: Intermediate
+- XML/PDF Generation (iText, XSL-FO): Advanced
+- Java/REST API Integration: Intermediate
+- Linux/Shell Scripting: Intermediate
+
+19.5 Academic Formation:
+- Minimum: Bac+5 / Master Degree in Computer Networks or Telecom Engineering
+- Project lead must hold Master degree or equivalent (MSc/Engineer)

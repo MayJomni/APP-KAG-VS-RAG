@@ -10,10 +10,30 @@ Ces métriques vont bien au-delà du simple Exact Match :
 """
 
 import os
+import sys
 import logging
 from typing import List, Dict, Any, Optional
+from types import ModuleType
 
 logger = logging.getLogger(__name__)
+
+# Patch: mock les modules vertexai manquants pour éviter l'erreur d'import de langchain_community
+_mods_to_mock = [
+    'vertexai', 'vertexai.generative_models', 'vertexai.language_models',
+    'vertexai.preview', 'vertexai.preview.generative_models',
+    'google.cloud.aiplatform', 'google.cloud.aiplatform_v1beta1',
+]
+for _mod in _mods_to_mock:
+    if _mod not in sys.modules:
+        sys.modules[_mod] = ModuleType(_mod)
+
+# Mock spécial pour langchain_community.chat_models.vertexai avec ChatVertexAI stub
+_vertexai_chat_mod = ModuleType('langchain_community.chat_models.vertexai')
+class _ChatVertexAI:
+    pass
+_vertexai_chat_mod.ChatVertexAI = _ChatVertexAI
+if 'langchain_community.chat_models.vertexai' not in sys.modules:
+    sys.modules['langchain_community.chat_models.vertexai'] = _vertexai_chat_mod
 
 # Ragas avec LangChain-OpenAI pointant sur l'API Groq (compatible OpenAI)
 try:
@@ -25,9 +45,18 @@ try:
         context_precision,
         context_recall,
     )
-    from ragas.llms import LangchainLLMWrapper
-    from ragas.embeddings import LangchainEmbeddingsWrapper
-    from langchain_community.embeddings import HuggingFaceEmbeddings
+    try:
+        from ragas.llms import LangchainLLMWrapper
+    except ImportError:
+        LangchainLLMWrapper = None
+    try:
+        from ragas.embeddings import LangchainEmbeddingsWrapper
+    except ImportError:
+        LangchainEmbeddingsWrapper = None
+    try:
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+    except ImportError:
+        HuggingFaceEmbeddings = None
     from datasets import Dataset
     RAGAS_AVAILABLE = True
 except ImportError as e:
