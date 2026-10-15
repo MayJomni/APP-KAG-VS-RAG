@@ -1,0 +1,107 @@
+{
+  "timestamp": "20260930_232533",
+  "n_questions": 13,
+  "n_documents": 24,
+  "summary": {
+    "RAG-minsearch (TF-IDF)": {
+      "exact_match_pct": 46.2,
+      "token_f1_pct": 29.3,
+      "latency_avg_ms": 1.3,
+      "latency_p50_ms": 0.69,
+      "latency_p95_ms": 6.42,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 4505
+    },
+    "RAG-BM25 (Okapi)": {
+      "exact_match_pct": 46.2,
+      "token_f1_pct": 29.3,
+      "latency_avg_ms": 0.2,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 2.06,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 4486
+    },
+    "RAG-Dense-Vector": {
+      "exact_match_pct": 15.4,
+      "token_f1_pct": 12.8,
+      "latency_avg_ms": 0.2,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 2.01,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 4276
+    },
+    "RAG-Milvus-Lite": {
+      "exact_match_pct": 15.4,
+      "token_f1_pct": 12.8,
+      "latency_avg_ms": 0.0,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 0.0,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 4276
+    },
+    "KAG-In-Memory-Graph": {
+      "exact_match_pct": 30.8,
+      "token_f1_pct": 23.1,
+      "latency_avg_ms": 0.0,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 0.0,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 384
+    },
+    "LightRAG-Naive": {
+      "exact_match_pct": 46.2,
+      "token_f1_pct": 29.3,
+      "latency_avg_ms": 0.0,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 0.0,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 4718
+    },
+    "LightRAG-Local": {
+      "exact_match_pct": 53.8,
+      "token_f1_pct": 29.3,
+      "latency_avg_ms": 0.3,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 3.91,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 2381
+    },
+    "LightRAG-Global": {
+      "exact_match_pct": 38.5,
+      "token_f1_pct": 33.8,
+      "latency_avg_ms": 0.0,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 0.0,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 2307
+    },
+    "LightRAG-Hybrid": {
+      "exact_match_pct": 53.8,
+      "token_f1_pct": 37.0,
+      "latency_avg_ms": 0.6,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 4.18,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 3585
+    },
+    "LightRAG-Mix": {
+      "exact_match_pct": 46.2,
+      "token_f1_pct": 29.3,
+      "latency_avg_ms": 0.3,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 2.08,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 5247
+    },
+    "Routeur-Lexical-Smart": {
+      "exact_match_pct": 53.8,
+      "token_f1_pct": 37.0,
+      "latency_avg_ms": 0.2,
+      "latency_p50_ms": 0.0,
+      "latency_p95_ms": 2.02,
+      "negative_detection_pct": 100.0,
+      "total_tokens": 3807
+    }
+  },
+  "detailed_runs_count": 143
+}
