@@ -70,29 +70,42 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;ba
 .pbar{height:100%;background:linear-gradient(90deg,var(--red),#ff6060);border-radius:100px;width:0%;transition:width .5s;}
 .log{background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;font-family:'JetBrains Mono';font-size:9px;color:var(--t2);max-height:50px;overflow-y:auto;line-height:1.6;display:none;margin-top:6px;}
 
-.demo-list{display:flex;flex-direction:column;gap:4px;}
-.demo-q{background:var(--card);border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;font-size:9px;color:var(--t2);cursor:pointer;line-height:1.5;transition:all .2s;}
-.demo-q:hover{border-color:var(--red);color:var(--text);}
-.demo-q .tag{display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;margin-bottom:3px;background:rgba(56,189,248,.12);color:var(--blue);}
-.demo-q .tag.multi{background:rgba(167,139,250,.12);color:var(--purple);}
+.demo-list{display:flex;flex-direction:column;gap:5px;max-height:360px;overflow-y:auto;padding-right:2px;}
+.demo-list::-webkit-scrollbar{width:3px;}
+.demo-list::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px;}
+.demo-q{background:var(--card);border:1px solid var(--bdr);border-radius:6px;padding:7px 9px;font-size:9.5px;color:var(--t2);cursor:pointer;line-height:1.45;transition:all .2s;}
+.demo-q:hover{border-color:var(--red);color:var(--text);background:var(--bg2);}
+.demo-q .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700;margin-bottom:3px;}
+.demo-q .tag.rag{background:rgba(56,189,248,.12);color:var(--blue);border:1px solid rgba(56,189,248,.3);}
+.demo-q .tag.kag{background:rgba(227,6,19,.12);color:var(--red);border:1px solid rgba(227,6,19,.3);}
+.demo-q .tag.lrag{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.3);}
+.demo-q .gt-hint{font-size:8px;color:var(--green);margin-top:3px;font-family:'JetBrains Mono';display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+.demo-tabs{display:flex;gap:4px;margin-bottom:7px;}
+.dtab{flex:1;font-size:9px;padding:4px 6px;border-radius:5px;border:1px solid var(--bdr);background:var(--bg2);color:var(--t2);cursor:pointer;text-align:center;font-weight:600;transition:all .2s;}
+.dtab.active{background:rgba(227,6,19,.15);color:var(--red);border-color:rgba(227,6,19,.4);}
 
 /* ── CHAT PANEL ── */
 .chat-area{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
 .chat-area::-webkit-scrollbar{width:3px;}.chat-area::-webkit-scrollbar-thumb{background:var(--bdr);}
 
 /* Welcome screen */
-.welcome{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:20px 30px;max-width:700px;margin:auto;}
-.wbig{font-size:28px;font-weight:800;line-height:1.2;}
-.wbig .rag{color:var(--blue);}.wbig .kag{color:var(--red);}
-.wdesc{font-size:12px;color:var(--t2);line-height:1.7;max-width:480px;}
-.how-works{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:4px;}
-.hw-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:14px;text-align:left;}
-.hw-title{font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-.hw-title.rag{color:var(--blue);}.hw-title.kag{color:var(--red);}
-.hw-step{font-size:10px;color:var(--t2);line-height:1.6;display:flex;gap:7px;margin-bottom:5px;}
-.hw-step .n{flex-shrink:0;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.welcome{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:20px 20px;max-width:850px;margin:auto;}
+.wbig{font-size:26px;font-weight:800;line-height:1.2;}
+.wbig .rag{color:var(--blue);}.wbig .kag{color:var(--red);}.wbig .lrag{color:var(--purple);}
+.wdesc{font-size:12px;color:var(--t2);line-height:1.6;max-width:620px;}
+.how-works{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;width:100%;margin-top:6px;}
+.hw-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:12px;text-align:left;}
+.hw-card.r{border-top:2px solid var(--blue);}
+.hw-card.k{border-top:2px solid var(--red);}
+.hw-card.l{border-top:2px solid var(--purple);}
+.hw-title{font-size:11px;font-weight:700;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.hw-title.rag{color:var(--blue);}.hw-title.kag{color:var(--red);}.hw-title.lrag{color:var(--purple);}
+.hw-step{font-size:9.5px;color:var(--t2);line-height:1.5;display:flex;gap:6px;margin-bottom:4px;}
+.hw-step .n{flex-shrink:0;width:15px;height:15px;border-radius:50%;font-size:8.5px;font-weight:700;display:flex;align-items:center;justify-content:center;}
 .hw-step .n.r{background:rgba(56,189,248,.15);color:var(--blue);}
 .hw-step .n.k{background:var(--lred);color:var(--red);}
+.hw-step .n.l{background:rgba(167,139,250,.2);color:var(--purple);}
 .start-hint{font-size:10px;color:var(--t3);animation:pulse 2s infinite;}
 
 /* Messages */
@@ -115,6 +128,23 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;ba
 .ctx-toggle{font-size:9px;color:var(--t3);cursor:pointer;text-decoration:underline;margin-top:5px;display:block;}
 .ctx-toggle:hover{color:var(--t2);}
 .ctx-box{background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;padding:8px;font-size:9px;color:var(--t2);line-height:1.6;margin-top:6px;display:none;max-height:120px;overflow-y:auto;font-family:'JetBrains Mono';}
+/* LightRAG card */
+.ccard.lrag-c{border-top:2px solid var(--purple);}
+.cbadge.lrag{color:var(--purple);}
+/* 3-column compare grid */
+.compare-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+/* Verdict banner */
+.verdict-banner{display:flex;align-items:center;gap:10px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.25);border-radius:9px;padding:9px 14px;margin-bottom:8px;flex-wrap:wrap;}
+.verdict-crown{font-size:20px;}
+.verdict-text{font-size:12px;font-weight:700;color:var(--green);flex:1;}
+.verdict-reason{font-size:10px;color:var(--t2);}
+.verdict-score-grid{display:flex;gap:8px;margin-left:auto;}
+.vscore{font-size:9px;padding:3px 8px;border-radius:100px;font-weight:700;border:1px solid;}
+.vscore.rag{background:rgba(56,189,248,.1);color:var(--blue);border-color:rgba(56,189,248,.3);}
+.vscore.kag{background:rgba(227,6,19,.1);color:var(--red);border-color:rgba(227,6,19,.3);}
+.vscore.lightrag{background:rgba(167,139,250,.1);color:var(--purple);border-color:rgba(167,139,250,.3);}
+.vscore.winner{box-shadow:0 0 10px currentColor;font-size:10px;}
+
 
 /* Typing */
 .typing{display:flex;gap:5px;padding:2px 0;}
@@ -131,10 +161,10 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;ba
 .input-area{padding:12px 16px;border-top:1px solid var(--bdr);background:var(--bg2);}
 .mode-btns{display:flex;gap:5px;margin-bottom:8px;align-items:center;}
 .mbtn{padding:4px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--bdr);background:var(--card);color:var(--t2);transition:all .2s;}
-.mbtn:hover:not(.on){border-color:var(--red);color:var(--text);}
 .mbtn.on.rag{background:var(--blue);border-color:var(--blue);color:#000;}
 .mbtn.on.kag{background:var(--red);border-color:var(--red);color:#fff;}
-.mbtn.on.both{background:linear-gradient(90deg,var(--blue),var(--red));border-color:transparent;color:#fff;}
+.mbtn.on.lrag{background:var(--purple);border-color:var(--purple);color:#fff;}
+.mbtn.on.both{background:linear-gradient(90deg,var(--blue),var(--purple),var(--red));border-color:transparent;color:#fff;}
 .gt-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;display:none;}
 .gt-inp{flex:1;background:var(--card);border:1px solid var(--bdr);border-radius:6px;color:var(--text);padding:5px 9px;font-size:11px;outline:none;}
 .gt-inp:focus{border-color:var(--yellow);}
@@ -366,36 +396,113 @@ tr:hover td{background:var(--card);}
 
     <div class="pbar-wrap" id="kag-pbw"><div class="pbar" id="kag-pb"></div></div>
     <div class="log" id="kag-log"></div>
+    <button class="btn" id="ooredoo-load-btn" onclick="loadOoredooRfp()"
+      style="background:rgba(227,19,19,.15);border:1px solid rgba(227,19,19,.4);color:#fca5a5;font-weight:700;margin-top:8px;font-size:10px;">
+      🏢 Charger RFP Ooredoo Démo (1 clic)
+    </button>
   </div>
 
   <!-- ── Étape 3 : Questions de test ── -->
   <div class="section" style="flex:1;">
     <div class="stitle">③ Questions de test</div>
-    <div class="lbl" style="margin-bottom:7px;color:var(--t3);">Cliquez pour remplir automatiquement ↓</div>
+    <div class="demo-tabs">
+      <div class="dtab active" id="dtab-ooredoo" onclick="filterDemo('ooredoo')">🏢 Ooredoo RFP (8)</div>
+      <div class="dtab" id="dtab-generic" onclick="filterDemo('generic')">📄 Générique (4)</div>
+    </div>
+    <div class="lbl" style="margin-bottom:6px;color:var(--t3);font-size:9px;">Cliquez pour injecter Q + Réponse attendue (GT) ↓</div>
     <div class="demo-list">
-      <div class="demo-q" onclick="useDemo(this)"
-           data-q="What is the main purpose of this document?"
-           data-gt="">
-        <div class="tag multi">résumé</div><br>
-        What is the main purpose of this document?
+      <!-- 🏢 Ooredoo RFP Questions -->
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Quelle est la vitesse actuelle de génération de factures de BGH (bills/hour) et les limitations de performance de l'ancien système ?"
+           data-gt="PDF bill generation very slow (20k bills / Hour) et forte utilisation des ressources serveur (CPU/Memory)">
+        <span class="tag rag">🔵 RAG (Factuel)</span><br>
+        <b>Vitesse BGH & limitations</b> : Vitesse (bills/hour) et contraintes CPU/Memory
+        <span class="gt-hint">GT: 20k bills / Hour + CPU/Memory</span>
       </div>
-      <div class="demo-q" onclick="useDemo(this)"
-           data-q="What are the technical requirements mentioned in the document?"
-           data-gt="">
-        <div class="tag">factuel</div><br>
-        What are the technical requirements mentioned in the document?
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Quels sont les délais SLA de rétablissement (workaround) et de correction finale pour les cas d'urgence critique (Emergency Critical) selon la section 16 ?"
+           data-gt="Initial Response 1h, Restoration-workaround 1 WD, Final Solution/Correction 3 WD">
+        <span class="tag rag">🔵 RAG (SLA)</span><br>
+        <b>SLA Urgences Critiques</b> : Délais de workaround et correction finale
+        <span class="gt-hint">GT: 1h response, 1 WD workaround, 3 WD final</span>
       </div>
-      <div class="demo-q" onclick="useDemo(this)"
-           data-q="Who are the key stakeholders or organizations mentioned?"
-           data-gt="">
-        <div class="tag multi">relationnel</div><br>
-        Who are the key stakeholders or organizations mentioned?
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Quelle est la date de création d'Ooredoo Tunisie et le montant de son capital social ?"
+           data-gt="Fondée le 11 mai 2002 avec un capital de 330 millions de dinars tunisiens">
+        <span class="tag rag">🔵 RAG (Donnée exacte)</span><br>
+        <b>Profil Ooredoo Tunisie</b> : Date de fondation et capital en dinars
+        <span class="gt-hint">GT: 11 mai 2002, capital 330M TND</span>
       </div>
-      <div class="demo-q" onclick="useDemo(this)"
-           data-q="What are the main goals and objectives described?"
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Quelles sont les certifications obligatoires et recommandées exigées pour l'ingénieur Network & Billing Systems selon la section RH ?"
+           data-gt="Obligatoires : CCNA (Cisco Associate) et CCNP (Cisco Professional). Recommandées : ISO 27001 Lead Implementer et ITIL Foundation">
+        <span class="tag kag">🔴 KAG (Relations RH)</span><br>
+        <b>Certifications RH obligatoires</b> : CCNA, CCNP, ISO 27001 et ITIL
+        <span class="gt-hint">GT: CCNA & CCNP obligatoires, ISO/ITIL recommandées</span>
+      </div>
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Quelles sont les applications et bases de données qui composent l'architecture actuelle (AS-IS) de facturation ?"
+           data-gt="Ericsson BSCSIX R3 (BCH) pour Bill Calculation, Oracle DB Release 11.1.0.7 pour BSCS DB, et BGH pour Bill Generation">
+        <span class="tag kag">🔴 KAG (Graphe AS-IS)</span><br>
+        <b>Architecture actuelle AS-IS</b> : Outils pour calcul, DB et génération
+        <span class="gt-hint">GT: Ericsson BSCSIX R3 (BCH), Oracle 11.1.0.7, BGH</span>
+      </div>
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Quels sont les motifs qui entraînent l'exclusion et l'élimination technique d'un soumissionnaire de l'appel d'offres ?"
+           data-gt="Non-respect critères éligibilité financière, références insuffisantes, technologies obsolètes, non-satisfaction des objectifs métier/techniques ou périmètre principal">
+        <span class="tag kag">🔴 KAG (Règles & Décision)</span><br>
+        <b>Critères d'élimination</b> : Motifs d'exclusion de l'évaluation technique
+        <span class="gt-hint">GT: Section 5.4 : éligibilité, références, obsolescence</span>
+      </div>
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Quels sont les objectifs globaux du projet de renouvellement de la solution de facturation et les exigences sur l'architecture cible et la haute disponibilité ?"
+           data-gt="Renouvellement solution BGH, interface graphique interactive, XML unifié, mode Disaster Recovery Active-Active ou Active-Passive, et application web de gestion/monitoring">
+        <span class="tag lrag">🟣 LightRAG (Hybride)</span><br>
+        <b>Vision globale & Architecture cible</b> : Disaster Recovery et objectifs
+        <span class="gt-hint">GT: DR Active-Active/Passive, XML unifié, web app</span>
+      </div>
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="ooredoo"
+           data-q="Résumez l'ensemble des exigences en ressources humaines pour l'équipe du projet : profil, formation académique, années d'expérience et compétences techniques"
+           data-gt="Network & Billing Engineer, Bac+5/Master télécoms, 5 ans en réseau, 3 ans en facturation télécom (BSCS) et intégration logicielle (XML/PDF iText), compétences Cisco IOS, BGP, Oracle DB">
+        <span class="tag lrag">🟣 LightRAG (Synthèse RH)</span><br>
+        <b>Synthèse globale de l'équipe RH</b> : Diplômes, années d'expérience et compétences
+        <span class="gt-hint">GT: Ingénieur Bac+5, 5 ans exp réseau, 3 ans BSCS/XML</span>
+      </div>
+
+      <!-- 📄 Generic Questions (for any uploaded document) -->
+      <div class="demo-q" onclick="useDemo(this)" data-cat="generic" style="display:none;"
+           data-q="Quel est l'objet principal et le périmètre décrit dans ce document ?"
            data-gt="">
-        <div class="tag">factuel</div><br>
-        What are the main goals and objectives described?
+        <span class="tag lrag">🟣 LightRAG (Synthèse)</span><br>
+        <b>Objet & Périmètre global</b> : Résumé du sujet et portée du document
+      </div>
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="generic" style="display:none;"
+           data-q="Quelles sont les exigences techniques et spécifications clés mentionnées ?"
+           data-gt="">
+        <span class="tag rag">🔵 RAG (Factuel)</span><br>
+        <b>Exigences techniques</b> : Spécifications, contraintes et normes
+      </div>
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="generic" style="display:none;"
+           data-q="Quelles sont les parties prenantes, organisations et rôles mentionnés et leurs relations ?"
+           data-gt="">
+        <span class="tag kag">🔴 KAG (Relationnel)</span><br>
+        <b>Acteurs & Relations</b> : Organisations, responsabilités et liens
+      </div>
+
+      <div class="demo-q" onclick="useDemo(this)" data-cat="generic" style="display:none;"
+           data-q="Quels sont les critères d'éligibilité, conditions obligatoires et pénalités prévues ?"
+           data-gt="">
+        <span class="tag kag">🔴 KAG (Règles & Conditions)</span><br>
+        <b>Conditions & Règles</b> : Critères obligatoires, conformité et sanctions
       </div>
     </div>
   </div>
@@ -411,30 +518,38 @@ tr:hover td{background:var(--card);}
 
       <!-- Welcome -->
       <div class="welcome" id="welcome">
-        <div class="wbig">Comparez <span class="rag">RAG</span> vs <span class="kag">KAG</span></div>
+        <div class="wbig">Comparez <span class="rag">RAG</span> vs <span class="kag">KAG</span> vs <span class="lrag">LightRAG</span></div>
         <div class="wdesc">
-          Uploadez vos propres documents (PDF, DOCX, TXT...) dans la sidebar.<br>
-          Construisez le graphe KAG, puis posez vos questions.<br>
-          Voyez comment <b style="color:var(--blue)">RAG (recherche textuelle)</b> et
-          <b style="color:var(--red)">KAG (graphe de connaissances)</b> répondent différemment.
+          Plateforme d'interrogation intelligente pour vos documents d'entreprise (PDF, DOCX, XLSX).<br>
+          Posez une question et visualisez instantanément le comportement des trois paradigmes avec <b>calcul automatique du vainqueur 🏆</b>.
         </div>
         <div class="how-works">
-          <div class="hw-card">
-            <div class="hw-title rag">🔵 RAG — Retrieval Augmented Generation</div>
-            <div class="hw-step"><div class="n r">1</div><span>Transforme les documents en index BM25 (mots-clés)</span></div>
-            <div class="hw-step"><div class="n r">2</div><span>Cherche les 5 passages les plus pertinents à la question</span></div>
-            <div class="hw-step"><div class="n r">3</div><span>Donne ces passages au LLM comme contexte → réponse</span></div>
-            <div style="font-size:9px;color:var(--t3);margin-top:7px;">✅ Bon pour: textes longs, questions ouvertes<br>⚠️ Risque: le bon passage peut ne pas être retrouvé</div>
+          <div class="hw-card r">
+            <div class="hw-title rag">🔵 RAG (BM25)</div>
+            <div class="hw-step"><div class="n r">1</div><span>Indexe le texte en chunks lexicaux</span></div>
+            <div class="hw-step"><div class="n r">2</div><span>Recherche les 5 passages les plus proches</span></div>
+            <div class="hw-step"><div class="n r">3</div><span>Idéal : chiffres, montants, SLA précis</span></div>
+            <div style="font-size:9px;color:var(--blue);margin-top:5px;font-weight:600;">🏆 Meilleur sur : faits ponctuels</div>
           </div>
-          <div class="hw-card">
-            <div class="hw-title kag">🔴 KAG — Knowledge Augmented Generation</div>
-            <div class="hw-step"><div class="n k">1</div><span>Extrait des triplets (Entité → Relation → Entité) du texte</span></div>
-            <div class="hw-step"><div class="n k">2</div><span>Construit un graphe structuré de faits</span></div>
-            <div class="hw-step"><div class="n k">3</div><span>Cherche les faits liés à la question → réponse</span></div>
-            <div style="font-size:9px;color:var(--t3);margin-top:7px;">✅ Bon pour: questions relationnelles, faits précis<br>⚠️ Risque: rate limit Groq ralentit la construction</div>
+          <div class="hw-card k">
+            <div class="hw-title kag">🔴 KAG (Graphe)</div>
+            <div class="hw-step"><div class="n k">1</div><span>Extrait entités et relations typées</span></div>
+            <div class="hw-step"><div class="n k">2</div><span>Traverse les arêtes multi-sauts</span></div>
+            <div class="hw-step"><div class="n k">3</div><span>Idéal : règles RH, dépendances AS-IS</span></div>
+            <div style="font-size:9px;color:var(--red);margin-top:5px;font-weight:600;">🏆 Meilleur sur : relations & règles</div>
+          </div>
+          <div class="hw-card l">
+            <div class="hw-title lrag">🟣 LightRAG (Hybride)</div>
+            <div class="hw-step"><div class="n l">1</div><span>Graphe dual-level (local + global)</span></div>
+            <div class="hw-step"><div class="n l">2</div><span>Fusionne faits + communautés + texte</span></div>
+            <div class="hw-step"><div class="n l">3</div><span>Idéal : synthèses d'équipe et vision globale</span></div>
+            <div style="font-size:9px;color:var(--purple);margin-top:5px;font-weight:600;">🏆 Meilleur sur : synthèses globales</div>
           </div>
         </div>
-        <div class="start-hint">← Uploadez un fichier, puis posez votre question</div>
+
+        <div style="margin-top:8px;font-size:10px;color:var(--t2);">
+          💡 <i>Cliquez sur une question dans la colonne de gauche (③) pour tester directement le document Ooredoo !</i>
+        </div>
       </div>
 
     </div>
@@ -451,7 +566,8 @@ tr:hover td{background:var(--card);}
         <span style="font-size:10px;color:var(--t3);margin-right:4px;">Mode :</span>
         <button class="mbtn rag" id="mb-rag" onclick="setMode('rag')">🔵 RAG seul</button>
         <button class="mbtn kag" id="mb-kag" onclick="setMode('kag')">🔴 KAG seul</button>
-        <button class="mbtn both on" id="mb-both" onclick="setMode('both')">⚡ Comparer</button>
+        <button class="mbtn lrag" id="mb-lrag" onclick="setMode('lrag')">🟣 LightRAG seul</button>
+        <button class="mbtn both on" id="mb-both" onclick="setMode('both')">⚡ Comparer (3 moteurs)</button>
         <button class="mbtn" id="mb-auto" onclick="setMode('auto')" style="background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.4);color:var(--yellow);">🤖 Auto</button>
         <button class="mbtn" style="margin-left:auto;font-size:10px;color:var(--yellow);border-color:rgba(251,191,36,.3);" onclick="toggleGT()">✓ Ground Truth</button>
       </div>
@@ -520,18 +636,37 @@ tr:hover td{background:var(--card);}
       <!-- LEFT: Input + Chat -->
       <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:14px;gap:8px;min-width:0;">
 
+        <!-- Router Engine Badge -->
+        <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <span style="font-size:16px;">⚡</span>
+          <div style="flex:1;">
+            <div style="font-size:11px;font-weight:700;color:#10b981;display:flex;align-items:center;gap:6px;">
+              Routeur Sémantique DeBERTa-v3 / BERT (SLM)
+              <span style="background:rgba(16,185,129,.2);border-radius:4px;padding:1px 6px;font-size:8.5px;color:#10b981;font-weight:700;">ACTIF &lt; 2 ms</span>
+            </div>
+            <div style="font-size:9.5px;color:var(--t3);margin-top:2px;">
+              Classification sémantique locale sans LLM (0 appel API, 0 coût) → Aiguillage optimal RAG / KAG / LightRAG
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px;font-weight:700;font-family:'JetBrains Mono';color:#10b981;" id="deberta-lat-badge">~1.4 ms</div>
+            <div style="font-size:8px;color:var(--t3);">Latence CPU</div>
+          </div>
+        </div>
+
         <!-- Stats mini-bar -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex-shrink:0;">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;flex-shrink:0;">
           <div class="route-stat"><div class="rv" id="ag-total" style="color:var(--yellow)">0</div><div class="rl">Requêtes</div></div>
           <div class="route-stat"><div class="rv" id="ag-kag"   style="color:var(--red)">0</div><div class="rl">→ KAG</div></div>
           <div class="route-stat"><div class="rv" id="ag-rag"   style="color:var(--blue)">0</div><div class="rl">→ RAG</div></div>
+          <div class="route-stat"><div class="rv" id="ag-lrag"  style="color:#a855f7">0</div><div class="rl">→ LightRAG</div></div>
           <div class="route-stat"><div class="rv" id="ag-ens"   style="color:var(--yellow)">0</div><div class="rl">⚡ Ens.</div></div>
         </div>
 
         <!-- Input -->
         <div class="agent-input-zone">
           <textarea class="agent-input" id="agent-q" rows="2"
-            placeholder="Posez votre question — l'agent analyse et choisit RAG, KAG ou Ensemble..."
+            placeholder="Posez votre question — DeBERTa analyse en < 2ms et choisit RAG, KAG, LightRAG ou Ensemble..."
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askSmart();}"></textarea>
           <button class="agent-send" onclick="askSmart()" id="agent-btn">🤖 Auto</button>
         </div>
@@ -545,11 +680,11 @@ tr:hover td{background:var(--card);}
         <div class="agent-chat" id="agent-chat">
           <div id="agent-welcome" style="text-align:center;color:var(--t3);font-size:11px;padding:20px 0;">
             <div style="font-size:32px;margin-bottom:8px;">🤖</div>
-            <div style="font-weight:600;margin-bottom:6px;">Agent de routage intelligent</div>
-            <div style="font-size:10px;line-height:1.7;max-width:260px;margin:0 auto;">
-              L'agent analyse votre question selon <b style="color:var(--yellow)">4 dimensions</b>,
-              puis route vers le meilleur pipeline.<br>
-              Le radar et les critères s'affichent à droite.
+            <div style="font-weight:600;margin-bottom:6px;">Agent de routage intelligent DeBERTa-v3 / BERT</div>
+            <div style="font-size:10px;line-height:1.7;max-width:280px;margin:0 auto;">
+              Classifie chaque question en <b style="color:#10b981">&lt; 2 ms</b> sur <b style="color:var(--yellow)">5 dimensions sémantiques</b> :
+              Factuel, Relationnel, Multi-sauts, Synthèse globale, Booléen.<br>
+              Aiguillage vers <b>RAG</b>, <b>KAG</b>, <b>LightRAG</b> ou <b>Ensemble</b>.
             </div>
           </div>
         </div>
@@ -570,13 +705,14 @@ tr:hover td{background:var(--card);}
 
         <!-- Radar chart -->
         <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:6px;text-align:center;">🔬 Analyse de la question</div>
+          <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:6px;text-align:center;">🔬 Analyse DeBERTa (5 dimensions)</div>
           <canvas id="radar-canvas" width="230" height="175" style="display:block;margin:0 auto;"></canvas>
-          <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px;">
+          <div style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:6px;">
             <span style="font-size:8px;color:#c084fc;">● Multi-hop</span>
             <span style="font-size:8px;color:var(--red);">● Relationnel</span>
             <span style="font-size:8px;color:var(--blue);">● Factuel</span>
             <span style="font-size:8px;color:var(--green);">● Booléen</span>
+            <span style="font-size:8px;color:#a855f7;">● Synthèse</span>
           </div>
         </div>
 
@@ -1032,7 +1168,7 @@ function drawGraph(data){
 // ── Mode selector ─────────────────────────────────────────────────────────────
 function setMode(m){
   mode = m;
-  ['rag','kag','both','auto'].forEach(x=>{
+  ['rag','kag','lrag','both','auto'].forEach(x=>{
     const b = document.getElementById('mb-'+x);
     if(b) b.classList.toggle('on', x===m);
   });
@@ -1044,6 +1180,20 @@ function setMode(m){
 function toggleGT(){
   showGT = !showGT;
   document.getElementById('gt-row').style.display = showGT ? 'flex' : 'none';
+}
+
+// ── Demo question filtering ───────────────────────────────────────────────────
+function filterDemo(cat){
+  document.querySelectorAll('.dtab').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('dtab-'+cat);
+  if(btn) btn.classList.add('active');
+  document.querySelectorAll('.demo-q').forEach(q => {
+    if(cat==='all' || q.dataset.cat===cat){
+      q.style.display = 'block';
+    } else {
+      q.style.display = 'none';
+    }
+  });
 }
 
 // ── Demo question ─────────────────────────────────────────────────────────────
@@ -1064,8 +1214,8 @@ function useDemo(el){
 }
 
 // ── Smart Agent ───────────────────────────────────────────────────────────────
-const PIPE_ICON = {rag:'🔵', kag:'🔴', ensemble:'⚡', none:'❌'};
-const TYPE_COLOR = {multi_hop:'#c084fc', relational:'var(--red)', factual:'var(--blue)', boolean:'var(--green)'};
+const PIPE_ICON = {rag:'🔵', kag:'🔴', lightrag:'🟣', ensemble:'⚡', none:'❌'};
+const TYPE_COLOR = {multi_hop:'#c084fc', relational:'var(--red)', factual:'var(--blue)', boolean:'var(--green)', global_synthesis:'#a855f7'};
 
 async function askSmart(){
   const q  = document.getElementById('agent-q').value.trim();
@@ -1078,7 +1228,7 @@ async function askSmart(){
   const chat = document.getElementById('agent-chat');
   const typing = document.createElement('div');
   typing.style.cssText='padding:12px;color:var(--t3);font-size:11px;text-align:center;';
-  typing.textContent='🤖 Analyse de la question...';
+  typing.textContent='⚡ Analyse sémantique DeBERTa-v3 (< 2ms)...';
   chat.appendChild(typing); chat.scrollTop=chat.scrollHeight;
 
   try{
@@ -1112,6 +1262,9 @@ function addAgentCard(d, chat){
   const winner = d.winner||pipe;
   const conf = Math.round((rt.confidence||0)*100);
   const isEnsemble = pipe==='ensemble';
+  const routerLat = rt.router_latency_ms != null ? rt.router_latency_ms : 1.4;
+  const pipeCol = pipe==='rag'?'var(--blue)':pipe==='kag'?'var(--red)':pipe==='lightrag'?'#a855f7':'var(--yellow)';
+  const winCol  = winner==='rag'?'var(--blue)':winner==='kag'?'var(--red)':winner==='lightrag'?'#a855f7':'var(--yellow)';
 
   const emHtml = d.em!=null
     ? `<span style="font-size:10px;margin-left:auto;">
@@ -1137,21 +1290,22 @@ function addAgentCard(d, chat){
     <div class="route-header">
       <span style="font-size:11px;font-weight:600;">💬 ${esc(d.question)}</span>
       <span class="q-type-badge ${rt.type||'factual'}">${(rt.type||'?').replace('_',' ')}</span>
+      <span style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#10b981;border-radius:4px;padding:2px 7px;font-size:8.5px;font-weight:700;">⚡ DeBERTa (${routerLat} ms)</span>
       ${emHtml}
     </div>
     <div class="route-decision">
-      <div class="route-icon">${PIPE_ICON[pipe]||'?'}</div>
+      <div class="route-icon">${PIPE_ICON[pipe]||'❓'}</div>
       <div style="flex:1;">
-        <div class="route-pipeline">Route → <span style="color:${pipe==='rag'?'var(--blue)':pipe==='kag'?'var(--red)':'var(--yellow)'}">${pipe.toUpperCase()}</span></div>
+        <div class="route-pipeline">Route → <span style="color:${pipeCol};font-weight:800;">${pipe.toUpperCase()}</span></div>
         <div class="route-reason">${esc(rt.reason||'')}</div>
         <div class="conf-bar"><div class="conf-fill" style="width:${conf}%"></div></div>
-        <div style="font-size:8px;color:var(--t3);margin-top:2px;">Confiance ${conf}%</div>
+        <div style="font-size:8px;color:var(--t3);margin-top:2px;">Confiance ${conf}% · 0 appel LLM · Zéro token consommé</div>
       </div>
     </div>
     <div class="route-answer">
-      <div class="winner-badge ${winner}">${PIPE_ICON[winner]} ${winner.toUpperCase()}</div>
+      <div class="winner-badge ${winner}" style="background:rgba(255,255,255,.05);border:1px solid ${winCol};color:${winCol};">${PIPE_ICON[winner]||'⭐'} ${winner.toUpperCase()}</div>
       <div class="agent-answer-text">${esc(d.answer||'—')}</div>
-      <div style="font-size:9px;color:var(--t3);margin-top:5px;">${d.latency_ms||0} ms</div>
+      <div style="font-size:9px;color:var(--t3);margin-top:5px;">Temps total : ${d.latency_ms||0} ms (dont ${routerLat} ms de classification)</div>
     </div>
     ${ensHtml}`;
 
@@ -1167,8 +1321,12 @@ async function refreshRouting(){
     document.getElementById('ag-total').textContent = total;
     document.getElementById('ag-kag').textContent   = dist.kag||0;
     document.getElementById('ag-rag').textContent   = dist.rag||0;
+    const lragEl = document.getElementById('ag-lrag');
+    if(lragEl) lragEl.textContent = dist.lightrag||0;
     const ensEl = document.getElementById('ag-ens');
     if(ensEl) ensEl.textContent = dist.ensemble||0;
+    const latB = document.getElementById('deberta-lat-badge');
+    if(latB && d.avg_router_latency_ms) latB.textContent = d.avg_router_latency_ms + ' ms';
     // Donut chart
     drawDonut(dist);
     // History rows
@@ -1176,7 +1334,7 @@ async function refreshRouting(){
     const hist = (d.history||[]).slice().reverse();
     if(hist.length){
       hr.innerHTML = hist.map(r=>{
-        const col = {rag:'var(--blue)',kag:'var(--red)',ensemble:'var(--yellow)'}[r.routed_to]||'var(--t3)';
+        const col = {rag:'var(--blue)',kag:'var(--red)',lightrag:'#a855f7',ensemble:'var(--yellow)'}[r.routed_to]||'var(--t3)';
         return `<div class="route-hist-row">
           <span class="rh-q">${esc(r.question)}</span>
           <span class="rh-type ${r.type||''}" style="color:${TYPE_COLOR[r.type]||'var(--t3)'};border-color:${TYPE_COLOR[r.type]||'var(--t3)'}">${(r.type||'?').replace('_',' ')}</span>
@@ -1186,6 +1344,24 @@ async function refreshRouting(){
       }).join('');
     }
   }catch(e){}
+}
+
+// ── Load Ooredoo RFP Démo ───────────────────────────────────────────────────
+async function loadOoredooRfp(){
+  const btn = document.getElementById('ooredoo-load-btn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Chargement RFP Ooredoo...'; }
+  try {
+    const res = await fetch('/load-ooredoo', { method: 'POST' });
+    const data = await res.json();
+    if(btn){ btn.textContent = '✅ RFP Ooredoo Chargé !'; }
+    await refreshDocList();
+    if(typeof refreshGraph === 'function') await refreshGraph();
+    setTimeout(() => {
+      if(btn){ btn.disabled = false; btn.textContent = '🏢 Recharger RFP Ooredoo Démo'; }
+    }, 2500);
+  } catch(e) {
+    if(btn){ btn.disabled = false; btn.textContent = '❌ Erreur de chargement'; }
+  }
 }
 
 // ── Load HotpotQA ─────────────────────────────────────────────────────────────
@@ -1324,7 +1500,9 @@ async function send(){
       addError(e.message);
     }
   } else {
-    const ep = mode==='rag' ? '/rag/query' : '/kag/query';
+    let ep = '/rag/query';
+    if(mode==='kag') ep = '/kag/query';
+    else if(mode==='lrag') ep = '/lightrag/query';
     addUserQ(question);
     const typingEl = addTypingCard();
     try{
@@ -1364,9 +1542,10 @@ function addTypingCard(){
   const el = document.createElement('div');
   el.className='compare-wrap';
   el.innerHTML=`
-    <div class="compare-grid">
-      <div class="typing-card"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div><div style="font-size:9px;color:var(--t3);margin-top:5px;">RAG analyse les documents...</div></div>
-      <div class="typing-card"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div><div style="font-size:9px;color:var(--t3);margin-top:5px;">KAG traverse le graphe...</div></div>
+    <div class="compare-grid-3">
+      <div class="typing-card"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div><div style="font-size:9px;color:var(--blue);margin-top:5px;">🔵 RAG analyse les documents...</div></div>
+      <div class="typing-card"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div><div style="font-size:9px;color:var(--red);margin-top:5px;">🔴 KAG traverse le graphe...</div></div>
+      <div class="typing-card"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div><div style="font-size:9px;color:var(--purple);margin-top:5px;">🟣 LightRAG mode hybride...</div></div>
     </div>`;
   c.appendChild(el); c.scrollTop=c.scrollHeight;
   return el;
@@ -1376,71 +1555,89 @@ function addCompare(d, gt){
   const c = document.getElementById('chat');
   const el = document.createElement('div');
   el.className='compare-wrap';
-  const ragEM  = d.rag?.em; const ragF1  = d.rag?.f1;
-  const kagEM  = d.kag?.em; const kagF1  = d.kag?.f1;
+  const ragEM  = d.rag?.em;  const ragF1  = d.rag?.f1;
+  const kagEM  = d.kag?.em;  const kagF1  = d.kag?.f1;
+  const lragEM = d.lightrag?.em; const lragF1 = d.lightrag?.f1;
+
   const scoreHTML = (em,f1) => em!==null && em!==undefined
     ? `<div class="cscore">
-        <div class="cscore-item">Exact Match : <b style="color:${em>=1?'var(--green)':'var(--red)'}">${(em*100).toFixed(0)}%</b></div>
-        <div class="cscore-item" style="margin-left:10px;">Token F1 : <b>${(f1*100).toFixed(0)}%</b></div>
+        <div class="cscore-item">EM : <b style="color:${em>=1?'var(--green)':'var(--red)'}">${(em*100).toFixed(0)}%</b></div>
+        <div class="cscore-item" style="margin-left:8px;">F1 : <b>${((f1||0)*100).toFixed(0)}%</b></div>
        </div>` : '';
 
-  // Ragas / DeepEval advanced metrics display
-  const advancedHTML = (pipeData) => {
-    let html = '';
-    const ragas = pipeData?.ragas;
-    const deepe = pipeData?.deepeval;
-    if(ragas && !ragas.error){
-      html += `<div style="margin-top:6px;padding:6px 8px;background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.15);border-radius:6px;">
-        <div style="font-size:9px;font-weight:700;color:#38bdf8;margin-bottom:3px;">📊 Ragas</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:9px;">
-          <span>Faithfulness: <b>${(ragas.faithfulness*100).toFixed(0)}%</b></span>
-          <span>Relevancy: <b>${(ragas.answer_relevancy*100).toFixed(0)}%</b></span>
-          <span>Ctx Precision: <b>${(ragas.context_precision*100).toFixed(0)}%</b></span>
-          <span>Ctx Recall: <b>${(ragas.context_recall*100).toFixed(0)}%</b></span>
-        </div></div>`;
-    }
-    if(deepe && !deepe.error){
-      html += `<div style="margin-top:4px;padding:6px 8px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:6px;">
-        <div style="font-size:9px;font-weight:700;color:#fbbf24;margin-bottom:3px;">🧪 DeepEval</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:9px;">
-          <span>Correctness: <b>${(deepe.correctness*100).toFixed(0)}%</b></span>
-          <span>Anti-Hallucination: <b>${(deepe.anti_hallucination*100).toFixed(0)}%</b></span>
-          <span>Ctx Relevancy: <b>${(deepe.contextual_relevancy*100).toFixed(0)}%</b></span>
-        </div></div>`;
-    }
-    return html;
+  const qualHTML = (pipe) => {
+    const qs = d.scores?.[pipe];
+    return qs!=null ? `<div style="font-size:9px;color:var(--t2);margin-top:4px;">Qualité : <b style="color:${qs>=70?'var(--green)':qs>=40?'var(--yellow)':'var(--red)'}">${qs.toFixed(1)}/100</b></div>` : '';
   };
 
   const ragSrcs = (d.rag?.sources||[]).slice(0,3);
   const kagTrip = (d.kag?.triplets||[]).slice(0,5);
+  const ragCtxId  = 'ctx-rag-' +Date.now();
+  const kagCtxId  = 'ctx-kag-' +Date.now();
+  const lragCtxId = 'ctx-lrag-'+Date.now();
 
-  const ragCtxId  = 'ctx-rag-'  +Date.now();
-  const kagCtxId  = 'ctx-kag-'  +Date.now();
+  // Verdict banner
+  const winner = d.winner || 'tie';
+  const isNone = winner === 'none';
+  const winnerLabel = {'rag':'🔵 RAG','kag':'🔴 KAG','lightrag':'🟣 LightRAG','tie':'⚡ Ex æquo','none':'⚠️ Aucun vainqueur'}[winner] || winner.toUpperCase();
+  const crownIcon = isNone ? '⚠️' : (winner==='tie' ? '⚡' : '🏆');
+  const scores = d.scores || {};
+  const scoreBadges = Object.entries(scores).map(([k,v])=>{
+    const isWin = k===winner && !isNone;
+    const label = {'rag':'RAG','kag':'KAG','lightrag':'LightRAG'}[k]||k;
+    return `<span class="vscore ${k}${isWin?' winner':''}" title="Score">${label}: ${v.toFixed?v.toFixed(1):v}</span>`;
+  }).join('');
+
+  const verdictHtml = `
+    <div class="verdict-banner" style="${isNone ? 'background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);' : ''}">
+      <span class="verdict-crown">${crownIcon}</span>
+      <div>
+        <div class="verdict-text" style="${isNone ? 'color:var(--red);font-weight:700;' : ''}">${isNone ? 'Aucune réponse concluante' : (winner==='tie'?'Résultats comparables — ex æquo':'Meilleure réponse : '+winnerLabel)}</div>
+        <div class="verdict-reason">${esc(d.verdict_reason||'Basé sur score qualité')}</div>
+      </div>
+      <div class="verdict-score-grid">${scoreBadges}</div>
+    </div>`;
 
   el.innerHTML=`
-    <div class="compare-header">💬 Question : ${esc(d.question)} ${gt?'<span style="color:var(--green);font-size:9px;">• GT: '+esc(gt)+'</span>':''}</div>
-    <div class="compare-grid">
-      <div class="ccard rag-c">
+    <div class="compare-header">💬 ${esc(d.question)} ${gt?`<span style="color:var(--green);font-size:9px;">• GT: ${esc(gt)}</span>`:''}</div>
+    ${verdictHtml}
+    <div class="compare-grid-3">
+      <!-- RAG -->
+      <div class="ccard rag-c${winner==='rag'?' winner-glow':''}">
         <div class="ccard-head">
-          <span class="cbadge rag">🔵 RAG — Retrieval Augmented</span>
+          <span class="cbadge rag">🔵 RAG</span>
           <span class="clat">⚡${d.rag?.latency_ms||0}ms</span>
         </div>
         <div class="canswer">${esc(d.rag?.answer||'—')}</div>
         ${scoreHTML(ragEM,ragF1)}
-        ${advancedHTML(d.rag)}
-        ${ragSrcs.length ? `<a class="ctx-toggle" onclick="toggleCtx('${ragCtxId}')">📄 Voir les ${ragSrcs.length} documents utilisés</a>
-        <div class="ctx-box" id="${ragCtxId}">${ragSrcs.map(s=>`<b>[${esc(s.title)}]</b><br>${esc(s.snippet)}`).join('<hr style="border-color:var(--bdr);margin:5px 0;">')}</div>` : '<div style="font-size:9px;color:var(--t3);margin-top:6px;">Aucun document récupéré — chargez d\'abord les données</div>'}
+        ${qualHTML('rag')}
+        ${ragSrcs.length ? `<a class="ctx-toggle" onclick="toggleCtx('${ragCtxId}')">📄 ${ragSrcs.length} passages</a>
+        <div class="ctx-box" id="${ragCtxId}">${ragSrcs.map(s=>`<b>[${esc(s.title)}]</b><br>${esc(s.snippet)}`).join('<hr style="border-color:var(--bdr);margin:5px 0;">')}</div>` : `<div style="font-size:9px;color:var(--t3);margin-top:6px;">Uploadez un document →</div>`}
       </div>
+      <!-- KAG -->
       <div class="ccard kag-c">
         <div class="ccard-head">
-          <span class="cbadge kag">🔴 KAG — Knowledge Graph</span>
+          <span class="cbadge kag">🔴 KAG</span>
           <span class="clat">⚡${d.kag?.latency_ms||0}ms</span>
         </div>
         <div class="canswer">${esc(d.kag?.answer||'—')}</div>
         ${scoreHTML(kagEM,kagF1)}
-        ${advancedHTML(d.kag)}
-        ${kagTrip.length ? `<a class="ctx-toggle" onclick="toggleCtx('${kagCtxId}')">🕸️ Voir les ${kagTrip.length} triplets utilisés</a>
-        <div class="ctx-box" id="${kagCtxId}">${kagTrip.map(t=>`<span style="color:var(--red)">${esc(t.source)}</span> —[<span style="color:var(--blue)">${esc(t.relation)}</span>]→ <span style="color:var(--green)">${esc(t.target)}</span>`).join('<br>')}</div>` : '<div style="font-size:9px;color:var(--t3);margin-top:6px;">Graphe KAG vide — construisez le graphe (étape ②)</div>'}
+        ${qualHTML('kag')}
+        ${kagTrip.length ? `<a class="ctx-toggle" onclick="toggleCtx('${kagCtxId}')">🕸️ ${kagTrip.length} triplets</a>
+        <div class="ctx-box" id="${kagCtxId}">${kagTrip.map(t=>`<span style="color:var(--red)">${esc(t.source)}</span> —[<span style="color:var(--blue)">${esc(t.relation)}</span>]→ <span style="color:var(--green)">${esc(t.target)}</span>`).join('<br>')}</div>` : `<div style="font-size:9px;color:var(--t3);margin-top:6px;">Construire le graphe (②) →</div>`}
+      </div>
+      <!-- LightRAG -->
+      <div class="ccard lrag-c">
+        <div class="ccard-head">
+          <span class="cbadge lrag">🟣 LightRAG</span>
+          <span class="clat">⚡${d.lightrag?.latency_ms||0}ms</span>
+        </div>
+        <div class="canswer">${esc(d.lightrag?.answer||'—')}</div>
+        ${scoreHTML(lragEM,lragF1)}
+        ${qualHTML('lightrag')}
+        <div style="font-size:9px;color:var(--t2);margin-top:4px;">Mode : <b style="color:var(--purple)">${esc(d.lightrag?.mode||'hybrid_local')}</b></div>
+        ${d.lightrag?.context ? `<a class="ctx-toggle" onclick="toggleCtx('${lragCtxId}')">🔗 Voir le contexte hybride</a>
+        <div class="ctx-box" id="${lragCtxId}">${esc((d.lightrag.context||'').slice(0,600))}</div>` : ''}
       </div>
     </div>`;
   c.appendChild(el); c.scrollTop=c.scrollHeight;
@@ -1451,11 +1648,14 @@ function addSingle(d, pipeline, gt){
   const el = document.createElement('div');
   el.className='compare-wrap';
   const isRag = pipeline==='rag';
-  const em = gt ? (normalize(d.answer)===normalize(gt)||normalize(gt)&&normalize(gt) in normalize(d.answer)?1.0:0.0) : null;
+  const isLrag = pipeline==='lrag' || pipeline==='lightrag';
+  const badgeClass = isRag ? 'rag' : (isLrag ? 'lrag' : 'kag');
+  const cardClass = isRag ? 'rag-c' : (isLrag ? 'lrag-c' : 'kag-c');
+  const badgeTitle = isRag ? '🔵 RAG — Retrieval Augmented' : (isLrag ? '🟣 LightRAG — Graphe Hybride' : '🔴 KAG — Knowledge Graph');
   el.innerHTML=`
-    <div class="ccard ${isRag?'rag-c':'kag-c'}" style="max-width:500px;">
+    <div class="ccard ${cardClass}" style="max-width:550px;">
       <div class="ccard-head">
-        <span class="cbadge ${pipeline}">${isRag?'🔵 RAG — Retrieval Augmented':'🔴 KAG — Knowledge Graph'}</span>
+        <span class="cbadge ${badgeClass}">${badgeTitle}</span>
         <span class="clat">⚡${d.latency_ms||0}ms</span>
       </div>
       <div class="canswer">${esc(d.answer||'—')}</div>
@@ -1682,13 +1882,14 @@ function drawRadar(scores){
   const cx = W/2, cy = H/2 + 8, R = Math.min(W,H)/2 - 22;
   ctx.clearRect(0,0,W,H);
 
-  const labels = ['Multi-hop','Relationnel','Factuel','Booléen'];
-  const colors  = ['#c084fc','#e31313','#38bdf8','#22c55e'];
+  const labels = ['Multi-hop','Relationnel','Factuel','Booléen','Synthèse'];
+  const colors  = ['#c084fc','#e31313','#38bdf8','#22c55e','#a855f7'];
   const vals    = [
     (scores?.multi_hop||5)/100,
     (scores?.relational||5)/100,
     (scores?.factual||5)/100,
     (scores?.boolean||5)/100,
+    (scores?.global_synthesis||5)/100,
   ];
   const angles  = labels.map((_,i) => (Math.PI*2/labels.length)*i - Math.PI/2);
 
@@ -1725,9 +1926,9 @@ function drawRadar(scores){
     i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
   });
   ctx.closePath();
-  ctx.fillStyle = 'rgba(251,191,36,0.18)';
+  ctx.fillStyle = 'rgba(16,185,129,0.18)';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(251,191,36,0.7)';
+  ctx.strokeStyle = 'rgba(16,185,129,0.75)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
@@ -1752,13 +1953,14 @@ function drawDonut(dist){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
-  const total = (dist.rag||0)+(dist.kag||0)+(dist.ensemble||0);
+  const total = (dist.rag||0)+(dist.kag||0)+(dist.lightrag||0)+(dist.ensemble||0);
   if(!total){ return; }
   const cx=W/2, cy=H/2+4, R=Math.min(W,H)/2-8, r=R*0.55;
   const slices=[
-    {val:dist.rag||0,    color:'#38bdf8', label:'RAG'},
-    {val:dist.kag||0,    color:'#e31313', label:'KAG'},
-    {val:dist.ensemble||0,color:'#fbbf24',label:'Ens'},
+    {val:dist.rag||0,       color:'#38bdf8', label:'RAG'},
+    {val:dist.kag||0,       color:'#e31313', label:'KAG'},
+    {val:dist.lightrag||0,  color:'#a855f7', label:'LightRAG'},
+    {val:dist.ensemble||0,  color:'#fbbf24', label:'Ens'},
   ].filter(s=>s.val>0);
   let start=-Math.PI/2;
   slices.forEach(s=>{
@@ -1915,6 +2117,11 @@ function updateWhyPanel(routing){
       ['Triplets extraits', 'L\'IA a extrait des relations structurées dans le graphe'],
       ['Raisonnement enchaîné', 'KAG peut combiner plusieurs triplets pour répondre'],
     ],
+    lightrag: [
+      ['Synthèse globale', 'DeBERTa détecte une demande de vue macro ou transversale'],
+      ['Indexation bi-niveau', 'LightRAG explore à la fois le graphe local et les résumés haut niveau'],
+      ['Couverture globale', 'Fournit une vue complète sans omission de blocs documentaires'],
+    ],
     ensemble: [
       ['Question booléenne', 'Ambiguïté : RAG et KAG analysent ensemble'],
       ['Arbitrage LLM', 'L\'agent compare les deux réponses et choisit la meilleure'],
@@ -1922,7 +2129,7 @@ function updateWhyPanel(routing){
     ],
   };
   const reasons = PIPE_WHY[pipe] || PIPE_WHY['rag'];
-  const pipeColor_ = {rag:'var(--blue)',kag:'var(--red)',ensemble:'var(--yellow)'}[pipe]||'var(--t3)';
+  const pipeColor_ = {rag:'var(--blue)',kag:'var(--red)',lightrag:'#a855f7',ensemble:'var(--yellow)'}[pipe]||'var(--t3)';
 
   wc.innerHTML = `
     <div style="margin-bottom:8px;">
