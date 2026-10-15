@@ -2,7 +2,14 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 from tqdm import tqdm
-from neo4j import GraphDatabase, Driver
+try:
+    from neo4j import GraphDatabase, Driver
+    NEO4J_AVAILABLE = True
+except ImportError:
+    GraphDatabase = None
+    Driver = Any
+    NEO4J_AVAILABLE = False
+
 from dotenv import load_dotenv
 from .entity_extraction import extract_entities_relations
 
