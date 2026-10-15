@@ -55,3 +55,6 @@ server_output.txt
 tmp/
 temp/
 *.tmp
+# Dataset lourd
+*.parquet
+data/hotpot_val.parquet
