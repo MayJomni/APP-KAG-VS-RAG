@@ -1,0 +1,153 @@
+[
+  {
+    "id": "hotpot_01",
+    "question": "Were Scott Derrickson and Ed Wood of the same nationality?",
+    "answer": "yes",
+    "type": "comparison",
+    "level": "medium",
+    "document_ids": [
+      "doc_613628",
+      "doc_839877",
+      "doc_010290"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_02",
+    "question": "What government position was held by the woman who portrayed Corliss Archer in the film Kiss and Tell?",
+    "answer": "Chief of Protocol",
+    "type": "bridge",
+    "level": "hard",
+    "document_ids": [
+      "doc_912677",
+      "doc_065524",
+      "doc_504718"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_03",
+    "question": "What science fantasy young adult series, told in first person, has a set of companion books narrating the stories of enslaved worlds and alien species?",
+    "answer": "Animorphs",
+    "type": "bridge",
+    "level": "medium",
+    "document_ids": [
+      "doc_679348",
+      "doc_126433"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_04",
+    "question": "Are the Laleli Mosque and Esma Sultan Mansion located in the same neighborhood?",
+    "answer": "no",
+    "type": "comparison",
+    "level": "medium",
+    "document_ids": [
+      "doc_310177",
+      "doc_916229",
+      "doc_498753"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_05",
+    "question": "The director of the romantic comedy \"Big Stone Gap\" is based in what New York city?",
+    "answer": "Greenwich Village, New York City",
+    "type": "bridge",
+    "level": "medium",
+    "document_ids": [
+      "doc_520402",
+      "doc_452301"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_06",
+    "question": "Which magazine was started first, Arthur's Magazine or First for Women?",
+    "answer": "Arthur's Magazine",
+    "type": "comparison",
+    "level": "easy",
+    "document_ids": [
+      "doc_030106",
+      "doc_235225"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_07",
+    "question": "What band is associated with both Noel Gallagher and Liam Gallagher?",
+    "answer": "Oasis",
+    "type": "bridge",
+    "level": "easy",
+    "document_ids": [
+      "doc_219819",
+      "doc_192219",
+      "doc_859983"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_08",
+    "question": "Were both Aleksandr Pushkin and Leo Tolstoy Russian writers?",
+    "answer": "yes",
+    "type": "comparison",
+    "level": "easy",
+    "document_ids": [
+      "doc_864496",
+      "doc_485685"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_09",
+    "question": "What university did the founder of Khan Academy attend for his MBA?",
+    "answer": "Harvard Business School",
+    "type": "bridge",
+    "level": "hard",
+    "document_ids": [
+      "doc_081608",
+      "doc_561682"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "hotpot_10",
+    "question": "Did the director of Inception also direct The Prestige?",
+    "answer": "yes",
+    "type": "bridge",
+    "level": "medium",
+    "document_ids": [
+      "doc_063646",
+      "doc_961293"
+    ],
+    "is_answerable": true
+  },
+  {
+    "id": "neg_01",
+    "question": "What was the worldwide box office gross of the 2025 sequel to Big Stone Gap?",
+    "answer": "Information absente du corpus",
+    "type": "unanswerable",
+    "level": "hard",
+    "document_ids": [],
+    "is_answerable": false
+  },
+  {
+    "id": "neg_02",
+    "question": "Which telecommunications satellite was launched jointly by Scott Derrickson and Ed Wood?",
+    "answer": "Information absente du corpus",
+    "type": "unanswerable",
+    "level": "hard",
+    "document_ids": [],
+    "is_answerable": false
+  },
+  {
+    "id": "neg_03",
+    "question": "In which year did Esma Sultan receive an honorary doctorate from Harvard University?",
+    "answer": "Information absente du corpus",
+    "type": "unanswerable",
+    "level": "hard",
+    "document_ids": [],
+    "is_answerable": false
+  }
+]
